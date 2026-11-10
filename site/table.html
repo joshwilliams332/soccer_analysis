@@ -65,7 +65,7 @@ function render() {
   t.innerHTML = `<thead><tr><th class="l sticky">Team</th>${cols.map((c) =>
     `<th class="sortable ${c[0] === sortKey ? "sorted" + (asc ? " asc" : "") : ""}" data-k="${c[0]}">${c[1]}</th>`).join("")}
     ${showForm ? '<th class="l">Form</th>' : ""}</tr></thead>
-    <tbody>${sorted.map((r) => `<tr><td class="l sticky">${MFC.team(r.short, r.short)}</td>
+    <tbody>${sorted.map((r) => `<tr><td class="l sticky">${MFC.tlink(r.id, r.short, r.short)}</td>
       ${cols.map((c) => { const v = c[2](r);
         if (c[0] === "pos") return `<td><b>${v}</b></td>`;
         const sign = (c[0] === "luck" || c[0] === "gd") && v > 0 ? "+" : "";

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mingus FC · Team</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main class="wrap" id="page"><div class="card empty" style="margin-top:18px">Loading…</div></main>
+<script src="assets/common.js"></script>
+<script>
+MFC.header("table.html");
+MFC.footer();
+const page = document.getElementById("page");
+const { esc, num, pct, us, rk } = MFC;
+
+/* Rank of value v among all teams (1 = best). */
+function rankAmong(all, val, t, better) {
+  const v = val(t);
+  if (v == null) return null;
+  const vals = all.map(val).filter((x) => x != null);
+  return { rank: vals.filter((x) => (better === "high" ? x > v : x < v)).length + 1, of: vals.length };
+}
+
+Promise.all([MFC.load("teams"), MFC.load("schedule"), MFC.load("players")]).then(async ([teams, sched, players]) => {
+  const id = Number(MFC.param("id"));
+  const t = teams.find((x) => x.id === id);
+  if (!t) { page.innerHTML = `<div class="card empty" style="margin-top:18px">Team not found. <a href="table.html">See the table</a></div>`; return; }
+  const detail = await MFC.load(`teams/${id}`);
+  document.title = `${t.name} · Mingus FC`;
+  const byId = Object.fromEntries(teams.map((x) => [x.id, x]));
+
+  const stat = (label, val, better, fmt = (x) => num(x)) => {
+    const v = val(t);
+    return `<tr><td class="l">${label}</td><td>${v == null ? "–" : fmt(v)}</td><td>${better ? rk(rankAmong(teams, val, t, better)) : ""}</td></tr>`;
+  };
+
+  const upcoming = sched.filter((f) => f.home === id || f.away === id);
+  const upRows = upcoming.map((f) => {
+    const home = f.home === id, opp = byId[home ? f.away : f.home], o = f.odds;
+    const price = o ? `${us(home ? o.us.h : o.us.a)} <span class="small muted">${pct(home ? o.implied.h : o.implied.a)}</span>` : `<span class="small muted">Not out yet</span>`;
+    return `<tr><td class="l">GW${f.gw}<br><span class="small muted">${MFC.day(f.kickoff)}</span></td>
+      <td class="l">${home ? "" : "@ "}${MFC.tlink(opp.id, opp.short, opp.name)} <span class="small muted">${MFC.ord(opp.pos)}</span></td>
+      <td>${price}</td><td><a href="match.html?id=${f.id}">Preview</a></td></tr>`;
+  }).join("");
+
+  const results = [...detail.results].reverse().map((m) => `<tr>
+    <td class="l">GW${m.gw}</td><td class="l">${m.home ? "" : "@ "}${MFC.tlink(m.opp, m.opp_short, m.opp_short)}</td>
+    <td><span class="res ${m.res}">${m.res}</span> ${m.gf}-${m.ga}</td>
+    <td class="${m.xgf > m.xga ? "better" : m.xgf < m.xga ? "worse" : ""}">${num(m.xgf)}</td>
+    <td class="${m.xga < m.xgf ? "better" : m.xga > m.xgf ? "worse" : ""}">${num(m.xga)}</td></tr>`).join("");
+
+  const squad = players.filter((p) => p.team === id).sort((a, b) => b.min - a.min);
+  const squadRows = squad.map((p) => `<tr><td class="l sticky name">${MFC.plink(p.id, p.name)}
+      ${p.status !== "a" ? `<span class="pill doubt" title="${esc(p.news)}">${p.chance}%</span>` : ""}<small>${p.pos}${p.pens === 1 ? " · PEN" : ""}</small></td>
+      <td>${p.min}</td><td>${p.starts}</td><td>${p.g}</td><td>${p.a}</td><td>${num(p.xg, 1)}</td><td>${num(p.xa, 1)}</td>
+      <td>${num(p.xgi90)}</td><td>${p.fpl_pts}</td><td>£${num(p.cost, 1)}</td></tr>`).join("");
+
+  page.innerHTML = `<div class="m-hero">
+      <div class="small muted">PREMIER LEAGUE · ${MFC.ord(t.pos)} OF ${teams.length}</div>
+      <h1 style="margin-top:4px">${MFC.dot(t.short)} ${esc(t.name)}</h1>
+      <div class="hero-sub"><span>${t.pts} pts</span><span>${t.w}-${t.d}-${t.l}</span><span>GD ${t.gd > 0 ? "+" : ""}${t.gd}</span><span>${MFC.form(t.form)}</span></div>
+      <div class="kpis">
+        <div><b>${num(t.xgf_pg)}</b><span>xG a game</span></div><div><b>${num(t.xga_pg)}</b><span>xG allowed</span></div>
+        <div><b>${t.xgd_pg > 0 ? "+" : ""}${num(t.xgd_pg)}</b><span>xG diff</span></div><div><b>${num(t.xpts, 1)}</b><span>Exp. points</span></div>
+      </div></div>
+
+    <h2>Coming up</h2>
+    <div class="tbl-wrap"><table>${upRows || `<tr><td class="l muted">No games in the next two gameweeks.</td></tr>`}</table></div>
+
+    <h2>Season in numbers</h2>
+    <div class="tbl-wrap"><table>
+      <tr><th class="l">Stat</th><th>Value</th><th>Rank</th></tr>
+      ${stat("Points", (x) => x.pts, "high", (x) => x)}
+      ${stat("Goals scored a game", (x) => x.gf_pg, "high")}
+      ${stat("Goals allowed a game", (x) => x.ga_pg, "low")}
+      ${stat("xG a game", (x) => x.xgf_pg, "high")}
+      ${stat("xG allowed a game", (x) => x.xga_pg, "low")}
+      ${stat("xG a game, last 6", (x) => x.last6.xgf_pg, "high")}
+      ${stat("xG allowed, last 6", (x) => x.last6.xga_pg, "low")}
+      ${stat("xG a game at home", (x) => x.home.xgf_pg, "high")}
+      ${stat("xG allowed at home", (x) => x.home.xga_pg, "low")}
+      ${stat("xG a game away", (x) => x.away.xgf_pg, "high")}
+      ${stat("xG allowed away", (x) => x.away.xga_pg, "low")}
+      ${stat("Expected points", (x) => x.xpts, "high", (x) => num(x, 1))}
+      ${stat("Points minus expected", (x) => x.pts_minus_xpts, null, (x) => (x > 0 ? "+" : "") + num(x, 1))}
+      ${stat("Goals minus xG", (x) => x.finishing, null, (x) => (x > 0 ? "+" : "") + num(x, 1))}
+    </table></div>
+    <p class="small muted">Rank among the ${teams.length} teams: green = top 5, red = bottom 5.</p>
+
+    <h2>Results</h2>
+    <div class="tbl-wrap"><table>
+      <tr><th class="l">GW</th><th class="l">Opponent</th><th>Score</th><th>xG</th><th>xGA</th></tr>${results}
+    </table></div>
+
+    <h2>Squad</h2>
+    <div class="tbl-wrap"><table class="dense">
+      <tr><th class="l sticky">Player</th><th>Min</th><th>St</th><th>G</th><th>A</th><th>xG</th><th>xA</th><th>xGI /90</th><th>FPL pts</th><th>£</th></tr>
+      ${squadRows}
+    </table></div>
+    <p class="small"><a href="compare.html?mode=teams&a=${id}">Compare ${esc(t.name)} with another team</a> ·
+      <a href="players.html?team=${id}">Sortable player stats</a></p>`;
+}).catch((e) => MFC.fail(page, e));
+</script>
+</body>
+</html>
