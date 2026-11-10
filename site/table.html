@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mingus FC · Premier League xG table</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main class="wrap">
+  <div class="page-head"><div><h1>The xG table</h1>
+    <div class="lede small">Who's creating chances, who's allowing them, and who's been lucky. Tap a column to sort.</div></div></div>
+  <div class="controls"><div class="seg" id="view">
+    <button data-v="season" class="on">Season</button><button data-v="last6">Last 6</button><button data-v="home">Home</button><button data-v="away">Away</button>
+  </div></div>
+  <div class="tbl-wrap"><table id="t"></table></div>
+  <div class="card small" style="margin-top:12px">
+    <b>xG</b> expected goals created · <b>xGA</b> expected goals allowed · <b>xPts</b> points the chances would earn on average ·
+    <b>Pts − xPts</b> above 0 = results ahead of the chances (luck or great finishing / goalkeeping).
+    Highlighted ranks are the top 5; grey are the bottom 5.
+  </div>
+</main>
+<script src="assets/common.js"></script>
+<script>
+MFC.header("table.html");
+MFC.footer();
+const { esc, num, rk } = MFC;
+const t = document.getElementById("t");
+let view = "season", sortKey = "pts", asc = false, rows = [];
+
+// [key, label, value(row), higher is better, decimals]
+const COLS = {
+  season: [["gp", "P", (r) => r.gp, null, 0], ["pts", "Pts", (r) => r.pts, true, 0], ["xpts", "xPts", (r) => r.xpts, true, 1],
+    ["luck", "Pts−xPts", (r) => r.pts_minus_xpts, null, 1], ["xgf", "xG/g", (r) => r.season.xgf_pg, true, 2],
+    ["xga", "xGA/g", (r) => r.season.xga_pg, false, 2], ["xgd", "xGD/g", (r) => r.xgd_pg, true, 2],
+    ["gf", "G/g", (r) => r.season.gf_pg, true, 2], ["ga", "GA/g", (r) => r.season.ga_pg, false, 2]],
+};
+for (const v of ["last6", "home", "away"]) {
+  COLS[v] = [["gp", "P", (r) => r[v].gp, null, 0], ["xgf", "xG/g", (r) => r[v].xgf_pg, true, 2], ["xga", "xGA/g", (r) => r[v].xga_pg, false, 2],
+    ["xgd", "xGD/g", (r) => (r[v].xgf_pg ?? 0) - (r[v].xga_pg ?? 0), true, 2], ["gf", "G/g", (r) => r[v].gf_pg, true, 2], ["ga", "GA/g", (r) => r[v].ga_pg, false, 2]];
+}
+
+function rankOf(col, r) {
+  const [, , val, better] = col;
+  if (better == null || val(r) == null) return null;
+  const vals = rows.map(val).filter((x) => x != null);
+  const better_count = vals.filter((x) => (better ? x > val(r) : x < val(r))).length;
+  return { rank: better_count + 1, of: vals.length };
+}
+
+function render() {
+  const cols = COLS[view];
+  if (!cols.find((c) => c[0] === sortKey)) { sortKey = cols[1][0]; asc = false; }
+  const col = cols.find((c) => c[0] === sortKey);
+  const sorted = [...rows].sort((x, y) => {
+    const a = col[2](x) ?? -Infinity, b = col[2](y) ?? -Infinity;
+    return (asc ? a - b : b - a) || y.pts - x.pts;
+  });
+  t.innerHTML = `<thead><tr><th class="l sticky">#&nbsp;Team</th>${cols.map((c) =>
+    `<th class="sortable ${c[0] === sortKey ? "sorted" + (asc ? " asc" : "") : ""}" data-k="${c[0]}">${c[1]}</th>`).join("")}
+    ${view === "season" ? '<th class="l">Form</th>' : ""}</tr></thead>
+    <tbody>${sorted.map((r, i) => `<tr><td class="l sticky"><span class="muted">${i + 1}</span>&nbsp;<b>${esc(r.short)}</b></td>
+      ${cols.map((c) => { const v = c[2](r); return `<td>${c[0] === "luck" && v > 0 ? "+" : ""}${num(v, c[4])}${c[3] == null ? "" : rk(rankOf(c, r))}</td>`; }).join("")}
+      ${view === "season" ? `<td class="l">${MFC.form(r.form)}</td>` : ""}</tr>`).join("")}</tbody>`;
+}
+
+t.addEventListener("click", (e) => {
+  const th = e.target.closest("th.sortable"); if (!th) return;
+  const k = th.dataset.k;
+  if (k === sortKey) asc = !asc;
+  else { sortKey = k; const c = COLS[view].find((x) => x[0] === k); asc = c[3] === false; }
+  render();
+});
+document.getElementById("view").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  view = b.dataset.v;
+  document.querySelectorAll("#view button").forEach((x) => x.classList.toggle("on", x === b));
+  render();
+});
+MFC.load("teams").then((d) => { rows = d; render(); }).catch((e) => MFC.fail(t.parentElement, e));
+</script>
+</body>
+</html>

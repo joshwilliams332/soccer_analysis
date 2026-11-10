@@ -14,6 +14,20 @@ Sports project: `claude/mingus-team-charter.md`. The plan is `claude/plans/premi
 - The cloud sandbox can't reach FPL / Understat; check results by fetching the data branch.
 - Work ships as branch, then PR, then Josh merges. Run `python3 -m unittest discover -s tests` before pushing.
 
+## Site (GitHub Pages: https://joshwilliams332.github.io/soccer_analysis/)
+- Static pages in `site/`, no build step: `index.html` (matches by gameweek), `match.html?id=` (preview),
+  `table.html` (xG table: season / last 6 / home / away, tap to sort), `players.html` (per-90 xG / xA lists).
+  Shared helpers (`MFC`: load, format, rank chips, header, footer) in `site/assets/common.js`; styles in `style.css`.
+- The workflow's `deploy` job (not on PRs) copies the `data` branch `build/*.json` into `site/data/`, adds a
+  commit-hash `?v=` to the shared files and deploys. Pages source must be "GitHub Actions". Never commit `site/data/`.
+- Brand kit look: paper grid, ink, Lab Blue links, Pitch green only for the FC tag. Teams as names or abbreviations,
+  no logos. Rank chips: top 5 blue, bottom 5 grey (sport colors never mean good / bad).
+- Every page carries the sources line and "For entertainment · 21+ · Gamble responsibly · 1-800-GAMBLER";
+  projections carry the dashed MINGUS ESTIMATE tag.
+- Check every change at 390px and desktop: copy `site/` and the data branch's `build/*.json` (as `data/`) into a
+  folder, `python3 -m http.server`, screenshot with Playwright (`/usr/bin/google-chrome`). Long team names get a
+  smaller `long` class on phones.
+
 ## Data
 - **FPL public API** (no key): player per-match minutes, goals, assists, xG, xA, xG conceded, defensive
   contributions, saves, cards; injury status, chance of playing, penalty / set-piece order; fixtures and scores.

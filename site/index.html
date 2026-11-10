@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mingus FC · Premier League match previews</title>
+<meta name="description" content="Premier League match previews built on expected goals: projected goals, win / draw / loss, players to watch.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main class="wrap">
+  <div class="page-head">
+    <div>
+      <h1 id="title">Matches</h1>
+      <div class="lede small">Projected goals and chances from each side's expected goals, newest matches weighted most.</div>
+    </div>
+    <span class="tag-est">MINGUS ESTIMATE</span>
+  </div>
+  <div class="controls"><div class="seg" id="gws"></div></div>
+  <div id="list"><div class="card empty">Loading…</div></div>
+</main>
+<script src="assets/common.js"></script>
+<script>
+MFC.header("index.html");
+MFC.footer();
+const list = document.getElementById("list");
+
+const long = (t) => (t && t.name.length > 10 ? "long" : "");
+function card(fx, teams) {
+  const h = teams[fx.home], a = teams[fx.away], p = fx.probs;
+  const w = (x) => `${Math.max(x * 100, 0).toFixed(1)}%`;
+  return `<a class="card fx" href="match.html?id=${fx.id}">
+    <div class="fx-row">
+      <div class="fx-team ${long(h)}">${MFC.esc(h ? h.name : fx.home_short)}</div>
+      <div class="fx-proj">${MFC.num(fx.proj.home, 1)} – ${MFC.num(fx.proj.away, 1)}<small>proj. goals</small></div>
+      <div class="fx-team away ${long(a)}">${MFC.esc(a ? a.name : fx.away_short)}</div>
+    </div>
+    <div class="wdl" role="img" aria-label="Home ${MFC.pct(p.home)}, draw ${MFC.pct(p.draw)}, away ${MFC.pct(p.away)}">
+      <div class="h" style="width:${w(p.home)}">${MFC.pct(p.home)}</div>
+      <div class="d" style="width:${w(p.draw)}">${MFC.pct(p.draw)}</div>
+      <div class="a" style="width:${w(p.away)}">${MFC.pct(p.away)}</div>
+    </div>
+    <div class="fx-meta"><span>${MFC.time(fx.kickoff)}</span><span>Over 2.5 ${MFC.pct(p.over_2_5)} · Both score ${MFC.pct(p.btts)}</span></div>
+  </a>`;
+}
+
+Promise.all([MFC.load("fixtures"), MFC.load("teams")]).then(([fixtures, teamRows]) => {
+  const teams = Object.fromEntries(teamRows.map((t) => [t.id, t]));
+  const gws = [...new Set(fixtures.map((f) => f.gw))].sort((x, y) => x - y);
+  if (!gws.length) { list.innerHTML = `<div class="card empty">No upcoming matches yet.</div>`; return; }
+  let gw = Number(MFC.param("gw")) || gws[0];
+  const seg = document.getElementById("gws");
+
+  function render() {
+    seg.innerHTML = gws.map((g) => `<button class="${g === gw ? "on" : ""}" data-gw="${g}">GW ${g}</button>`).join("");
+    document.getElementById("title").textContent = `Gameweek ${gw}`;
+    const rows = fixtures.filter((f) => f.gw === gw);
+    let html = "", last = "";
+    for (const fx of rows) {
+      const k = MFC.dayKey(fx.kickoff);
+      if (k !== last) { html += `<div class="day">${MFC.day(fx.kickoff)}</div>`; last = k; }
+      html += card(fx, teams);
+    }
+    list.innerHTML = html || `<div class="card empty">No matches left this gameweek.</div>`;
+  }
+  seg.addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    gw = Number(b.dataset.gw); history.replaceState(null, "", `?gw=${gw}`); render();
+  });
+  render();
+}).catch((e) => MFC.fail(list, e));
+</script>
+</body>
+</html>
