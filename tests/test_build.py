@@ -75,13 +75,15 @@ class TestBuild(unittest.TestCase):
         cls.tmp = tempfile.mkdtemp()
         raw = make_league(cls.tmp)
         cls.out = os.path.join(cls.tmp, "build")
-        cls.meta = build_data.build(raw, cls.out)
+        cls.log = os.path.join(cls.tmp, "log")
+        cls.meta = build_data.build(raw, cls.out, now=datetime(2026, 9, 20, tzinfo=timezone.utc), log_dir=cls.log)
 
         def read(n):
             with open(os.path.join(cls.out, n)) as fh:
                 return json.load(fh)
         cls.teams, cls.players = read("teams.json"), read("players.json")
         cls.matches, cls.fixtures = read("matches.json"), read("fixtures.json")
+        cls.acc = read("accuracy.json")
 
     def test_meta(self):
         self.assertEqual(self.meta["season"], "2026-27")
@@ -132,6 +134,33 @@ class TestBuild(unittest.TestCase):
         alp_home = fx["home_short"] == "ALP"
         p_alp = fx["probs"]["home"] if alp_home else fx["probs"]["away"]
         self.assertGreater(p_alp, 0.5)
+
+
+    def test_accuracy(self):
+        rep = self.acc["replay"]
+        self.assertEqual(rep["n"], 4)  # GW4 and GW5, two matches each
+        for k in ("brier", "brier_base", "logloss", "over_brier", "goals_pred"):
+            self.assertIsNotNone(rep[k], k)
+        # GW6 previews saved before kickoff (Sep 25); none graded yet
+        self.assertEqual(len(os.listdir(self.log)), 2)
+        self.assertEqual(self.acc["live"]["n"], 0)
+
+
+class TestLiveGrading(unittest.TestCase):
+    def test_frozen_preview_graded(self):
+        import accuracy
+        tmp = tempfile.mkdtemp()
+        fx = {"id": 9, "gw": 6, "kickoff": "2026-09-25T19:00:00Z", "home": 1, "away": 2, "home_short": "ALP",
+              "away_short": "BRA", "proj": {"home": 2.0, "away": 0.8},
+              "probs": {"home": 0.65, "draw": 0.2, "away": 0.15, "over_2_5": 0.55}}
+        accuracy.snapshot(tmp, [fx], "2026-09-24T10:00:00Z", "v0")
+        accuracy.snapshot(tmp, [dict(fx, proj={"home": 9, "away": 9})], "2026-09-25T20:00:00Z", "v0")  # after kickoff: ignored
+        prior = [{"id": 1, "gw": 1, "kickoff": "2026-08-21T19:00:00Z", "home": 1, "away": 2, "hg": 1, "ag": 0}]
+        played = prior + [{"id": 9, "gw": 6, "kickoff": fx["kickoff"], "home": 1, "away": 2, "hg": 3, "ag": 1}]
+        live, graded = accuracy.grade_live(tmp, played)
+        self.assertEqual(live["n"], 1)
+        self.assertEqual(graded[0]["proj"]["home"], 2.0)
+        self.assertAlmostEqual(live["brier"], round(0.35 ** 2 + 0.2 ** 2 + 0.15 ** 2, 3))
 
 
 class TestRefresh(unittest.TestCase):

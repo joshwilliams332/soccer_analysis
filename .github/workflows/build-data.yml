@@ -1,4 +1,4 @@
-name: Build data
+name: Build data and site
 
 on:
   push:
@@ -61,3 +61,40 @@ jobs:
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
             commit -qm "Data $(date -u +%Y-%m-%dT%H:%MZ)"
           git push -q origin "$DATA_BRANCH"
+
+  deploy:
+    # Publishes site/ plus the fresh build/ files to GitHub Pages (main, schedule and Run workflow only).
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Add the latest data
+        run: |
+          git fetch -q --depth 1 origin data
+          mkdir -p site/data
+          git --work-tree=site/data checkout FETCH_HEAD -- build
+          mv site/data/build/*.json site/data/ && rmdir site/data/build
+          git reset -q
+          ls -la site/data
+
+      - name: Cache-bust the shared files
+        run: |
+          v=$(git rev-parse --short HEAD)
+          sed -i "s#assets/style.css\"#assets/style.css?v=$v\"#; s#assets/common.js\"#assets/common.js?v=$v\"#" site/*.html
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

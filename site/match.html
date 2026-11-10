@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mingus FC · Match preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main class="wrap" id="page"><div class="card empty" style="margin-top:18px">Loading…</div></main>
+<script src="assets/common.js"></script>
+<script>
+MFC.header("index.html");
+MFC.footer();
+const page = document.getElementById("page");
+const { esc, num, pct, rk, form } = MFC;
+
+/* Plain-English notes on one side's attack against the other's defense. */
+function notes(att, def, attHome) {
+  /* Each note is [text, tone] from the attacking side's point of view: good = helps the attack, bad = hurts it. */
+  const out = [];
+  const ar = att.ranks.xgf_pg, dr = def.ranks.xga_pg;
+  if (MFC.tone(ar) === "good") out.push([`${esc(att.name)} create ${num(att.xgf_pg)} xG a game, ${MFC.ord(ar.rank)} in the league.`, "good"]);
+  else if (MFC.tone(ar) === "bad") out.push([`${esc(att.name)} create only ${num(att.xgf_pg)} xG a game (${MFC.ord(ar.rank)}).`, "bad"]);
+  if (MFC.tone(dr) === "bad") out.push([`${esc(def.name)} allow ${num(def.xga_pg)} xG a game, ${MFC.ord(dr.rank)} of ${dr.of}: a soft spot.`, "good"]);
+  else if (MFC.tone(dr) === "good") out.push([`${esc(def.name)} allow just ${num(def.xga_pg)} xG a game (${MFC.ord(dr.rank)} fewest): a tough wall.`, "bad"]);
+  const trendA = att.last6.xgf_pg - att.xgf_pg, trendD = def.last6.xga_pg - def.xga_pg;
+  if (Math.abs(trendA) >= 0.3) out.push([`${esc(att.name)}'s chance creation is ${trendA > 0 ? "up" : "down"} lately: ${num(att.last6.xgf_pg)} xG a game over the last ${att.last6.gp}.`, trendA > 0 ? "good" : "bad"]);
+  if (Math.abs(trendD) >= 0.3) out.push([`${esc(def.name)} have been ${trendD > 0 ? "leakier" : "tighter"} lately: ${num(def.last6.xga_pg)} xG allowed a game over the last ${def.last6.gp}.`, trendD > 0 ? "good" : "bad"]);
+  const v = attHome ? att.home : att.away, dv = attHome ? def.away : def.home;
+  if (v.gp >= 3 && dv.gp >= 3) out.push([`${esc(att.name)} ${attHome ? "at home" : "away"}: ${num(v.xgf_pg)} xG a game. ${esc(def.name)} ${attHome ? "away" : "at home"}: ${num(dv.xga_pg)} allowed.`, ""]);
+  if (att.finishing >= 3) out.push([`${esc(att.name)} have scored ${num(att.finishing, 1)} more goals than their chances suggest; that usually cools off.`, "bad"]);
+  if (att.finishing <= -3) out.push([`${esc(att.name)} have scored ${num(-att.finishing, 1)} fewer goals than their chances suggest; finishing tends to even out.`, "good"]);
+  if (!out.length) out.push([`Nothing extreme here: ${esc(att.name)}'s attack ranks ${MFC.ord(ar.rank)} and ${esc(def.name)}'s defense ${MFC.ord(dr.rank)}.`, ""]);
+  return out;
+}
+
+function matchupCard(att, def, attHome) {
+  const row = (label, a, ar, d, dr) => `<tr><td class="l">${label}</td><td>${num(a)}${rk(ar)}</td><td>${num(d)}${rk(dr)}</td></tr>`;
+  return `<div class="card"><h3>${esc(att.short)} attack vs ${esc(def.short)} defense</h3>
+    ${notes(att, def, attHome).map(([t, c]) => `<p class="say ${c}">${t}</p>`).join("")}
+    <div class="tbl-wrap" style="margin-top:10px"><table>
+      <tr><th class="l">xG a game</th><th>${esc(att.short)} for</th><th>${esc(def.short)} against</th></tr>
+      ${row("Season", att.xgf_pg, att.ranks.xgf_pg, def.xga_pg, def.ranks.xga_pg)}
+      ${row(`Last ${att.last6.gp}`, att.last6.xgf_pg, att.ranks.xgf_pg_l6, def.last6.xga_pg, def.ranks.xga_pg_l6)}
+      ${row(attHome ? "Home / away" : "Away / home", (attHome ? att.home : att.away).xgf_pg, null, (attHome ? def.away : def.home).xga_pg, null)}
+    </table></div></div>`;
+}
+
+function watchList(rows) {
+  if (!rows.length) return `<div class="empty small">No regulars with expected minutes.</div>`;
+  return `<ul class="plist watch">${rows.map((w) => `<li>
+    <div class="who"><b>${esc(w.name)}</b> ${w.pens ? '<span class="pill" title="First on penalties">PEN</span>' : ""}
+      <span class="small muted">${w.pos} · ~${num(w.exp_min, 0)} min · ${num(w.exp_xg)} xG ${num(w.exp_xa)} xA</span></div>
+    <div class="p">${pct(w.p_goal)}<span>score</span></div>
+    <div class="p">${pct(w.p_assist)}<span>assist</span></div></li>`).join("")}</ul>`;
+}
+
+const STATUS = { d: "Doubtful", i: "Injured", s: "Suspended", u: "Unavailable", n: "Not available" };
+function outList(rows) {
+  if (!rows.length) return `<div class="muted small">Nobody flagged.</div>`;
+  return `<ul class="plist watch">${rows.map((o) => `<li><div class="who"><b>${esc(o.name)}</b>
+    <span class="small muted">${o.pos} · ${esc(o.news || STATUS[o.status] || "")}</span></div>
+    <div class="p">${o.chance}%<span>to play</span></div><div></div></li>`).join("")}</ul>`;
+}
+
+function recent(team, matches, teams) {
+  const rows = matches.filter((m) => m.home === team.id || m.away === team.id).slice(-6).reverse();
+  if (!rows.length) return "";
+  return `<div class="card"><h3>${esc(team.short)} last ${rows.length}</h3><div class="tbl-wrap"><table>
+    <tr><th class="l">Opp</th><th>Score</th><th>xG</th><th>xGA</th></tr>
+    ${rows.map((m) => {
+      const home = m.home === team.id, gf = home ? m.hg : m.ag, ga = home ? m.ag : m.hg;
+      const res = gf > ga ? "W" : gf === ga ? "D" : "L";
+      return `<tr><td class="l">${home ? "" : "@ "}${esc(home ? m.away_short : m.home_short)}</td>
+        <td><span class="res ${res}">${res}</span> ${gf}-${ga}</td><td>${num(home ? m.hxg : m.axg)}</td><td>${num(home ? m.axg : m.hxg)}</td></tr>`;
+    }).join("")}</table></div></div>`;
+}
+
+Promise.all([MFC.load("fixtures"), MFC.load("teams"), MFC.load("matches")]).then(([fixtures, teamRows, matches]) => {
+  const id = Number(MFC.param("id"));
+  const teams = Object.fromEntries(teamRows.map((t) => [t.id, t]));
+  const fx = fixtures.find((f) => f.id === id);
+  if (!fx) {
+    const m = matches.find((x) => x.id === id);
+    page.innerHTML = m
+      ? `<div class="card" style="margin-top:18px"><h2 style="margin-top:0">Full time</h2>
+          <p class="mono">${esc(teams[m.home].name)} ${m.hg} – ${m.ag} ${esc(teams[m.away].name)}</p>
+          <p class="mono muted">xG ${num(m.hxg)} – ${num(m.axg)}</p><a href="index.html">Upcoming matches</a></div>`
+      : `<div class="card empty" style="margin-top:18px">That match isn't in the next two gameweeks. <a href="index.html">See upcoming matches</a></div>`;
+    return;
+  }
+  const h = teams[fx.home], a = teams[fx.away], p = fx.probs;
+  document.title = `${h.short} v ${a.short} · Mingus FC`;
+  const w = (x) => `${(x * 100).toFixed(1)}%`;
+  page.innerHTML = `<div class="m-hero">
+    <div class="m-head">
+      <div class="small muted">GAMEWEEK ${fx.gw} · ${MFC.day(fx.kickoff)} · ${MFC.time(fx.kickoff)}</div>
+    </div>
+    <div class="m-teams">
+      <div class="m-team"><h1 class="${h.name.length > 10 ? "long" : ""}">${esc(h.name)}</h1><div class="form">${form(h.form)}</div><div class="small muted mono rec">${h.pts} pts · ${h.w}-${h.d}-${h.l}</div></div>
+      <div class="m-score" style="text-align:center">${num(fx.proj.home, 2)} – ${num(fx.proj.away, 2)}<small>projected goals</small></div>
+      <div class="m-team" style="text-align:right"><h1 class="${a.name.length > 10 ? "long" : ""}">${esc(a.name)}</h1><div class="form">${form(a.form)}</div><div class="small muted mono rec">${a.pts} pts · ${a.w}-${a.d}-${a.l}</div></div>
+    </div>
+    <div style="text-align:center;margin:12px 0"><span class="tag-est">MINGUS ESTIMATE</span></div>
+    <div class="wdl"><div class="h" style="width:${w(p.home)}">${pct(p.home)}</div><div class="d" style="width:${w(p.draw)}">${pct(p.draw)}</div><div class="a" style="width:${w(p.away)}">${pct(p.away)}</div></div>
+    <div class="wdl-legend"><span>${esc(h.short)} win</span><span>Draw</span><span>${esc(a.short)} win</span></div></div>
+    <p class="small muted">New model: on this season's replay it's been a little better than a simple baseline on results and has
+      projected too many goals. Not yet checked against bookmaker odds. <a href="model.html">Details</a></p>
+
+    <h2>Goals</h2>
+    <div class="stats">
+      <div class="stat"><b>${pct(p.over_2_5)}</b><span>Over 2.5</span></div>
+      <div class="stat"><b>${pct(1 - p.over_2_5)}</b><span>Under 2.5</span></div>
+      <div class="stat"><b>${pct(p.btts)}</b><span>Both score</span></div>
+      <div class="stat"><b>${pct(p.home_clean_sheet)}</b><span>${esc(h.short)} clean sheet</span></div>
+      <div class="stat"><b>${pct(p.away_clean_sheet)}</b><span>${esc(a.short)} clean sheet</span></div>
+    </div>
+    <h2>Most likely scores</h2>
+    <div class="scores">${fx.scores.map((s) => `<div class="s">${s.h}-${s.a}<span>${pct(s.p)}</span></div>`).join("")}</div>
+    <p class="small muted">Even the likeliest exact score happens only about one time in ${Math.round(1 / fx.scores[0].p)}.</p>
+
+    <h2>Where each side can hurt the other</h2>
+    <p class="small muted" style="margin-top:-2px">Green dots help the attacking side, red dots work against it. Rank chips: green = good for that team, red = poor.</p>
+    <div class="grid two">${matchupCard(h, a, true)}${matchupCard(a, h, false)}</div>
+
+    <h2>Players to watch</h2>
+    <p class="small muted" style="margin-top:-2px">Chance to score or assist from each player's xG and xA per 90, expected minutes and this matchup. Includes penalties.</p>
+    <div class="grid two">
+      <div class="card"><h3>${esc(h.name)}</h3>${watchList(fx.watch.home)}</div>
+      <div class="card"><h3>${esc(a.name)}</h3>${watchList(fx.watch.away)}</div>
+    </div>
+
+    <h2>Injuries and doubts</h2>
+    <div class="grid two">
+      <div class="card"><h3>${esc(h.name)}</h3>${outList(fx.out.home)}</div>
+      <div class="card"><h3>${esc(a.name)}</h3>${outList(fx.out.away)}</div>
+    </div>
+
+    <h2>Recent form</h2>
+    <div class="grid two">${recent(h, matches, teams)}${recent(a, matches, teams)}</div>
+    <h2>Luck check</h2>
+    <div class="card"><p class="say">${esc(h.short)}: ${h.pts} points from chances worth about ${num(h.xpts, 1)} (${h.pts_minus_xpts >= 0 ? "+" : ""}${num(h.pts_minus_xpts, 1)}).
+      ${esc(a.short)}: ${a.pts} from about ${num(a.xpts, 1)} (${a.pts_minus_xpts >= 0 ? "+" : ""}${num(a.pts_minus_xpts, 1)}).</p>
+      <p class="small muted say">Expected points: how many points each match's chances would earn on average. Ten matches is a small sample.</p></div>`;
+}).catch((e) => MFC.fail(page, e));
+</script>
+</body>
+</html>
