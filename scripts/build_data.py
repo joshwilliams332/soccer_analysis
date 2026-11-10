@@ -329,6 +329,7 @@ def build(raw_dir, build_dir, now=None, log_dir=None):
     # ---- Public files (no model output): schedule with free odds, last gameweek ----
     save(build_dir, "schedule.json", schedule(fixtures, next_gw, short, teams, upcoming, raw_dir))
     save(build_dir, "gameweek.json", last_gameweek(matches, histories, elements, short, POS))
+    save(build_dir, "difficulty.json", difficulty(fixtures, next_gw, team_rows, short))
     for tid, data in team_files(teams, matches, histories, elements, short, fx_by_id).items():
         save(os.path.join(build_dir, "teams"), f"{tid}.json", data)
     return meta
@@ -396,6 +397,32 @@ def schedule(fixtures, next_gw, short, teams, upcoming, raw_dir):
                      "home_short": short.get(fx["team_h"]), "away_short": short.get(fx["team_a"]),
                      "odds": o, "out": outs.get(fx["id"], {"home": [], "away": []})})
     return rows
+
+
+def difficulty(fixtures, next_gw, team_rows, short, n=5):
+    """Each team's next n gameweeks: opponent, venue, and how many xG that opponent creates / allows a game (season).
+
+    Facts, not the model: attack view = opponent's xG allowed (more = easier to score), defense view = opponent's xG
+    created (less = easier to keep a clean sheet). Blank gameweeks are empty lists, doubles have two entries.
+    """
+    if not next_gw:
+        return {"gws": [], "teams": []}
+    gws = list(range(next_gw, next_gw + n))
+    stats = {t["id"]: t for t in team_rows}
+    rows = []
+    for t in team_rows:
+        cells = {g: [] for g in gws}
+        for fx in sorted(fixtures, key=lambda x: x.get("kickoff_time") or ""):
+            if fx.get("finished") or fx.get("event") not in cells or t["id"] not in (fx["team_h"], fx["team_a"]):
+                continue
+            home = fx["team_h"] == t["id"]
+            opp = stats.get(fx["team_a"] if home else fx["team_h"])
+            if not opp:
+                continue
+            cells[fx["event"]].append({"opp": opp["id"], "opp_short": opp["short"], "home": home,
+                                       "opp_xga": opp["xga_pg"], "opp_xgf": opp["xgf_pg"], "fixture": fx["id"]})
+        rows.append({"id": t["id"], "short": t["short"], "name": t["name"], "cells": [cells[g] for g in gws]})
+    return {"gws": gws, "teams": rows}
 
 
 def team_files(teams, matches, histories, elements, short, fx_by_id):

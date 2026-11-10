@@ -166,6 +166,19 @@ class TestBuild(unittest.TestCase):
         self.assertEqual([g["min"] for g in log], [90, 90, 0, 0, 0])  # hurt after GW2: DNP rows kept
         self.assertIn("opp_short", log[0])
 
+    def test_difficulty(self):
+        with open(os.path.join(self.out, "difficulty.json")) as fh:
+            d = json.load(fh)
+        self.assertEqual(d["gws"], [6, 7, 8, 9, 10])
+        self.assertEqual(len(d["teams"]), 4)
+        for t in d["teams"]:
+            self.assertEqual(len(t["cells"]), 5)
+            self.assertEqual(len(t["cells"][0]), 1)            # one GW6 game each
+            self.assertEqual(t["cells"][1:], [[], [], [], []])  # no fixtures after GW6 in the test league = blanks
+            c = t["cells"][0][0]
+            self.assertIn(c["home"], (True, False))
+            self.assertIsNotNone(c["opp_xga"])
+
     def test_american(self):
         self.assertEqual(build_data.american(2.5), 150)
         self.assertEqual(build_data.american(1.5), -200)

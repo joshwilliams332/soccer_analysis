@@ -42,9 +42,9 @@ Promise.all([MFC.load("teams"), MFC.load("schedule"), MFC.load("players")]).then
   const upRows = upcoming.map((f) => {
     const home = f.home === id, opp = byId[home ? f.away : f.home], o = f.odds;
     const price = o ? `${us(home ? o.us.h : o.us.a)} <span class="small muted">${pct(home ? o.implied.h : o.implied.a)}</span>` : `<span class="small muted">Not out yet</span>`;
-    return `<tr><td class="l">GW${f.gw}<br><span class="small muted">${MFC.day(f.kickoff)}</span></td>
+    return `<tr><td class="l"><a href="match.html?id=${f.id}">GW${f.gw}</a><br><span class="small muted">${MFC.day(f.kickoff)}</span></td>
       <td class="l">${home ? "" : "@ "}${MFC.tlink(opp.id, opp.short, opp.name)} <span class="small muted">${MFC.ord(opp.pos)}</span></td>
-      <td>${price}</td><td><a href="match.html?id=${f.id}">Preview</a></td></tr>`;
+      <td>${price}</td></tr>`;
   }).join("");
 
   const results = [...detail.results].reverse().map((m) => `<tr>
@@ -68,8 +68,12 @@ Promise.all([MFC.load("teams"), MFC.load("schedule"), MFC.load("players")]).then
         <div><b>${t.xgd_pg > 0 ? "+" : ""}${num(t.xgd_pg)}</b><span>xG diff</span></div><div><b>${num(t.xpts, 1)}</b><span>Exp. points</span></div>
       </div></div>
 
+    <h2>xG trend</h2>
+    <div class="card" id="trend"></div>
+
     <h2>Coming up</h2>
     <div class="tbl-wrap"><table>${upRows || `<tr><td class="l muted">No games in the next two gameweeks.</td></tr>`}</table></div>
+    <p class="small"><a href="fixtures.html">Next five gameweeks for every team</a></p>
 
     <h2>Season in numbers</h2>
     <div class="tbl-wrap"><table>
@@ -103,6 +107,7 @@ Promise.all([MFC.load("teams"), MFC.load("schedule"), MFC.load("players")]).then
     </table></div>
     <p class="small"><a href="compare.html?mode=teams&a=${id}">Compare ${esc(t.name)} with another team</a> ·
       <a href="players.html?team=${id}">Sortable player stats</a></p>`;
+  MFC.xgChart(document.getElementById("trend"), detail.results);
 }).catch((e) => MFC.fail(page, e));
 </script>
 </body>
