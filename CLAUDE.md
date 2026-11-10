@@ -1,6 +1,6 @@
-# Mingus Soccer (working name): notes for Claude
+# Mingus FC: notes for Claude
 
-Premier League research for Mingus Sports, owned by the soccer lead chat. Josh (joshwilliams332) merges PRs.
+Mingus FC: Premier League research for Mingus Sports (name: Josh, Nov 10, 2026), owned by the soccer lead chat. Josh (joshwilliams332) merges PRs.
 Team rules (honest records, responsible-gambling lines, our own brand, phone first, keep it cheap) are in the Mingus
 Sports project: `claude/mingus-team-charter.md`. The plan is `claude/plans/premier-league.md`.
 
@@ -22,7 +22,9 @@ Sports project: `claude/mingus-team-charter.md`. The plan is `claude/plans/premi
   correction window (one request per player who has played, 0.15 s apart).
 - **Understat** (shots, PPDA, shot maps) is planned but was on a maintenance page Nov 10, 2026.
 - **FBref** has had no advanced stats since Jan 20, 2026. Don't use it for xG.
-- Show our own derived numbers; credit sources; never copy another site's tables, names or design.
+- Public numbers OK with sources credited (Josh, Nov 10): show our own derived numbers, credit FPL / Understat,
+  never copy another site's tables, names or design.
+- Brand: Mingus Sports kit (project `claude/brand-kit.md`). Soccer color Pitch #4C9A1E (small text #3B7A14).
 
 ## Goals model v0 (`scripts/model.py`, untested against odds)
 - Per match: blended goals = 70% xG + 30% goals. Team attack / defense = recency-weighted (8-match half-life)
