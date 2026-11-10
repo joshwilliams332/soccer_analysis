@@ -25,7 +25,7 @@ PLAYER_PRIOR_MIN = 450   # pull per-90 rates toward the position average by 5 ma
 LAST_N = 6               # "recent form" window for teams
 MIN_LAST = 4             # matches used for expected minutes
 OUT_STATUSES = {"i", "s", "u", "n"}
-MODEL_VERSION = "v0"
+MODEL_VERSION = model.VERSION
 
 
 def f(x):
@@ -110,7 +110,8 @@ def build(raw_dir, build_dir, now=None, log_dir=None):
             "axg": side_xg.get((fx["id"], "a")) if has_xg else None,
         })
 
-    strengths, avg = model.team_strengths(matches)
+    priors = model.load_priors({tid: t["name"] for tid, t in teams.items()})
+    strengths, avg = model.fit(matches, priors)
 
     # ---- Teams ----
     team_games = {tid: [] for tid in teams}
@@ -299,14 +300,16 @@ def build(raw_dir, build_dir, now=None, log_dir=None):
         "next_gw": next_gw, "matches": len(matches), "players": len(player_rows),
         "league_avg": {"home": r(avg["home"]), "away": r(avg["away"])},
         "model": {"version": MODEL_VERSION, "xg_weight": model.XG_WEIGHT, "half_life": model.HALF_LIFE,
-                  "prior_games": model.PRIOR_GAMES, "rho": model.RHO, "player_prior_min": PLAYER_PRIOR_MIN,
-                  "status": "untested: not backtested against closing odds yet"},
+                  "prior_games": model.PRIOR_GAMES, "rho": model.RHO, "promoted": model.PROMOTED,
+                  "priors": "last season's end strengths" if priors else "none (league average)",
+                  "player_prior_min": PLAYER_PRIOR_MIN,
+                  "status": "backtested 2022-23 to 2026-27: better than a base-rate baseline, not better than closing odds"},
         "source": "Fantasy Premier League public data (player xG / xA include penalties)",
         "warnings": warnings,
     }
 
     # ---- Accuracy: season replay + frozen pre-kickoff previews graded once played ----
-    acc = {"replay": accuracy.replay(matches), "replay_from_gw": accuracy.REPLAY_FROM, "live": {"n": 0}, "graded": []}
+    acc = {"replay": accuracy.replay(matches, priors), "replay_from_gw": accuracy.REPLAY_FROM, "live": {"n": 0}, "graded": []}
     if log_dir:
         accuracy.snapshot(log_dir, upcoming, now.strftime("%Y-%m-%dT%H:%M:%SZ"), MODEL_VERSION)
         acc["live"], acc["graded"] = accuracy.grade_live(log_dir, matches)

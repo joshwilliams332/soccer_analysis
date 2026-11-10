@@ -61,14 +61,14 @@ def summarize(rows):
     }
 
 
-def replay(matches):
+def replay(matches, priors=None):
     """matches: finished, sorted by kickoff, each {gw, home, away, hg, ag, hxg, axg}."""
     rows = []
     for m in matches:
         if (m.get("gw") or 0) < REPLAY_FROM:
             continue
         prior = [x for x in matches if (x.get("gw") or 0) < m["gw"]]
-        s, avg = model.team_strengths(prior)
+        s, avg = model.fit(prior, priors)
         lh, la = model.project(m["home"], m["away"], s, avg)
         p = model.match_probs(lh, la, top=0)
         b, ob = base_rates(prior)
