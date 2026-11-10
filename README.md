@@ -1,4 +1,4 @@
-# Mingus Soccer (working name)
+# Mingus FC
 
 Premier League research for Mingus Sports: expected goals (xG), expected assists (xA), expected goals allowed (xGA)
 and match previews built from free public data.

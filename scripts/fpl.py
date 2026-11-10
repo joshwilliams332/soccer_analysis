@@ -19,7 +19,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 
 BASE = "https://fantasy.premierleague.com/api/"
-UA = "Mozilla/5.0 (compatible; MingusSoccer/0.1; +https://github.com/joshwilliams332/soccer_analysis)"
+UA = "Mozilla/5.0 (compatible; MingusFC/0.1; +https://github.com/joshwilliams332/soccer_analysis)"
 PAUSE = 0.15  # seconds between player requests, to stay gentle
 CORRECTION_WINDOW = timedelta(hours=72)
 
