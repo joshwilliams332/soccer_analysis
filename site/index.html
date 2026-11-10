@@ -3,77 +3,104 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mingus FC · Premier League match previews</title>
-<meta name="description" content="Premier League match previews built on expected goals: projected goals, win / draw / loss, players to watch.">
+<title>Mingus FC · Premier League matches, odds and xG</title>
+<meta name="description" content="Premier League fixtures with free bookmaker odds, last week's results with xG, and player of the week.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
 <main class="wrap">
-  <div class="page-head">
-    <div>
-      <h1 id="title">Matches</h1>
-      <div class="lede small">Projected goals and chances from each side's expected goals, newest matches weighted most.</div>
-    </div>
-    <span class="tag-est">MINGUS ESTIMATE</span>
-  </div>
-  <div class="controls"><div class="seg" id="gws"></div></div>
-  <div id="list"><div class="card empty">Loading…</div></div>
-  <div class="card small" style="margin-top:14px"><b>How accurate is this?</b> Tested on every match since 2022-23: clearly
-    better than a simple baseline at calling results, but closing bookmaker odds are better, and over / under 2.5 is only
-    about as good as the baseline. Treat these as estimates, not edges. <a href="model.html">See the numbers</a></div>
+  <div class="page-head"><div><h1 id="title">Matches</h1></div><div class="seg" id="gws"></div></div>
+  <div class="card" style="padding:4px 12px"><ul class="fxl" id="list"><li class="empty">Loading…</li></ul></div>
+  <p class="small muted" id="oddsnote" style="margin:6px 2px 0"></p>
+
+  <h2 id="rtitle">Last week's results</h2>
+  <div class="card" style="padding:8px 10px"><table class="rs" id="results"></table>
+    <p class="small muted" style="margin:6px 2px 2px">Top number goals, bottom xG (expected goals). <b>xG says</b>: how
+      likely that result was from the chances both sides created. Green = the chances pointed this way, red = a
+      surprise.</p></div>
+
+  <h2 id="ptitle">Player of the week</h2>
+  <div id="potw"></div>
 </main>
 <script src="assets/common.js"></script>
 <script>
 MFC.header("index.html");
 MFC.footer();
-const list = document.getElementById("list");
+const { esc, num, pct, us, team } = MFC;
+const el = (id) => document.getElementById(id);
 
-const long = (t) => (t && t.name.length > 10 ? "long" : "");
-function card(fx, teams) {
-  const h = teams[fx.home], a = teams[fx.away], p = fx.probs;
-  const w = (x) => `${Math.max(x * 100, 0).toFixed(1)}%`;
-  return `<a class="card fx" href="match.html?id=${fx.id}">
-    <div class="fx-row">
-      <div class="fx-team ${long(h)}">${MFC.esc(h ? h.name : fx.home_short)}</div>
-      <div class="fx-proj">${MFC.num(fx.proj.home, 1)} – ${MFC.num(fx.proj.away, 1)}<small>proj. goals</small></div>
-      <div class="fx-team away ${long(a)}">${MFC.esc(a ? a.name : fx.away_short)}</div>
-    </div>
-    <div class="wdl" role="img" aria-label="Home ${MFC.pct(p.home)}, draw ${MFC.pct(p.draw)}, away ${MFC.pct(p.away)}">
-      <div class="h" style="width:${w(p.home)}">${MFC.pct(p.home)}</div>
-      <div class="d" style="width:${w(p.draw)}">${MFC.pct(p.draw)}</div>
-      <div class="a" style="width:${w(p.away)}">${MFC.pct(p.away)}</div>
-    </div>
-    <div class="fx-meta"><span>${MFC.time(fx.kickoff)}</span><span>Over 2.5 ${MFC.pct(p.over_2_5)} · Both score ${MFC.pct(p.btts)}</span></div>
-  </a>`;
+function oddsCell(o) {
+  if (!o) return `<div class="small muted" style="margin-top:4px">Odds not out yet</div>`;
+  return `<div class="odds3"><span>${us(o.us.h)}<small>${pct(o.implied.h)}</small></span><span>${us(o.us.d)}<small>draw</small></span><span>${us(o.us.a)}<small>${pct(o.implied.a)}</small></span></div>`;
 }
 
-Promise.all([MFC.load("fixtures"), MFC.load("teams")]).then(([fixtures, teamRows]) => {
-  const teams = Object.fromEntries(teamRows.map((t) => [t.id, t]));
-  const gws = [...new Set(fixtures.map((f) => f.gw))].sort((x, y) => x - y);
-  if (!gws.length) { list.innerHTML = `<div class="card empty">No upcoming matches yet.</div>`; return; }
-  let gw = Number(MFC.param("gw")) || gws[0];
-  const seg = document.getElementById("gws");
+function fixtureRow(fx, teams) {
+  const h = teams[fx.home], a = teams[fx.away];
+  const sub = (t) => `${MFC.ord(t.pos)} · ${t.pts} pts · ${t.form.slice(-5).join("")}`;
+  return `<li><a href="match.html?id=${fx.id}">
+    <div class="side">${team(h.short, h.name)}<span class="sub2">${sub(h)}</span></div>
+    <div class="mid">${MFC.time(fx.kickoff)}${oddsCell(fx.odds)}</div>
+    <div class="side away"><span class="tm r">${MFC.dot(a.short)}${esc(a.name)}</span><span class="sub2">${sub(a)}</span></div></a></li>`;
+}
 
+function cmpClass(x, y) { return x > y ? "up" : x < y ? "down" : "even"; }
+
+function resultRow(m, teams) {
+  const h = teams[m.home], a = teams[m.away];
+  const c = m.result_chance;
+  // Color against the likeliest result: draws are rarely the likeliest, so a fixed cut-off would make every draw "lucky".
+  const ratio = c == null || !m.likeliest ? null : c / m.likeliest;
+  const cc = ratio == null ? "even" : ratio >= 0.85 ? "up" : ratio < 0.45 ? "down" : "even";
+  return `<tr>
+    <td class="t h">${esc(h.name)}</td>
+    <td class="box"><b class="${cmpClass(m.hg, m.ag)}">${m.hg}</b><span class="${cmpClass(m.hxg, m.axg)}">${num(m.hxg)}</span></td>
+    <td class="lbl"><span>G</span><span>xG</span></td>
+    <td class="box"><b class="${cmpClass(m.ag, m.hg)}">${m.ag}</b><span class="${cmpClass(m.axg, m.hxg)}">${num(m.axg)}</span></td>
+    <td class="t a">${esc(a.name)}</td>
+    <td class="ch ${cc}">${c == null ? "–" : pct(c)}</td></tr>`;
+}
+
+Promise.all([MFC.load("schedule"), MFC.load("teams"), MFC.load("gameweek")]).then(([sched, teamRows, gwk]) => {
+  const teams = Object.fromEntries(teamRows.map((t) => [t.id, t]));
+  const gws = [...new Set(sched.map((f) => f.gw))].sort((x, y) => x - y);
+  let gw = Number(MFC.param("gw")) || gws[0];
   function render() {
-    seg.innerHTML = gws.map((g) => `<button class="${g === gw ? "on" : ""}" data-gw="${g}">GW ${g}</button>`).join("");
-    document.getElementById("title").textContent = `Gameweek ${gw}`;
-    const rows = fixtures.filter((f) => f.gw === gw);
+    el("gws").innerHTML = gws.map((g) => `<button class="${g === gw ? "on" : ""}" data-gw="${g}">GW ${g}</button>`).join("");
+    el("title").textContent = gws.length ? `Gameweek ${gw}` : "Matches";
     let html = "", last = "";
-    for (const fx of rows) {
+    for (const fx of sched.filter((f) => f.gw === gw)) {
       const k = MFC.dayKey(fx.kickoff);
-      if (k !== last) { html += `<div class="day">${MFC.day(fx.kickoff)}</div>`; last = k; }
-      html += card(fx, teams);
+      if (k !== last) { html += `<li class="day" style="margin:12px 4px 2px">${MFC.day(fx.kickoff)}</li>`; last = k; }
+      html += fixtureRow(fx, teams);
     }
-    list.innerHTML = html || `<div class="card empty">No matches left this gameweek.</div>`;
+    el("list").innerHTML = html || `<li class="empty">No upcoming matches.</li>`;
+    const any = sched.some((f) => f.gw === gw && f.odds);
+    el("oddsnote").textContent = any ? "Odds: average across bookmakers (US format), with the chance they imply. Via football-data.co.uk, updated a couple of times a week." : "";
   }
-  seg.addEventListener("click", (e) => {
+  el("gws").addEventListener("click", (e) => {
     const b = e.target.closest("button"); if (!b) return;
     gw = Number(b.dataset.gw); history.replaceState(null, "", `?gw=${gw}`); render();
   });
   render();
-}).catch((e) => MFC.fail(list, e));
+
+  if (gwk.results) {
+    el("rtitle").textContent = `Gameweek ${gwk.gw} results`;
+    el("results").innerHTML = `<tr><td></td><td></td><td></td><td></td><td></td><td class="small muted" style="text-align:center;font-weight:800">xG says</td></tr>`
+      + gwk.results.map((m) => resultRow(m, teams)).join("");
+  }
+  if (gwk.top && gwk.top.length) {
+    const [p, ...rest] = gwk.top;
+    el("ptitle").textContent = `Player of the week · GW ${gwk.gw}`;
+    el("potw").innerHTML = `<div class="potw"><div><div class="k">Player of the week</div><div class="n">${esc(p.name)}</div>
+      <div class="small" style="color:#C9D1CD">${MFC.dot(p.team_short)} ${esc(p.team_short)} · ${p.pos} · ${p.g} G · ${p.a} A · ${num(p.xg)} xG · ${num(p.xa)} xA</div></div>
+      <div class="pts">${p.pts}<small>FPL PTS</small></div></div>
+      <div class="card" style="margin-top:10px;padding:4px 12px"><ul class="plist">${rest.map((x, i) => `<li>
+        <div class="n">${i + 2}</div><div class="who"><b>${esc(x.name)}</b><span class="small muted">${esc(x.team_short)} · ${x.pos} · ${x.g} G · ${x.a} A · ${num(x.xg)} xG</span></div>
+        <div class="big"><b style="font-size:17px">${x.pts}</b> <span class="small muted">pts</span></div></li>`).join("")}</ul></div>`;
+  }
+}).catch((e) => MFC.fail(el("list"), e));
 </script>
 </body>
 </html>

@@ -50,6 +50,9 @@ jobs:
       - name: Fetch FPL data
         run: python scripts/fpl.py --out out ${{ inputs.full && '--full' || '' }}
 
+      - name: Fetch free odds (football-data.co.uk; optional)
+        run: python scripts/odds.py --out out
+
       - name: Build
         run: python scripts/build_data.py --out out
 
@@ -83,7 +86,9 @@ jobs:
           git fetch -q --depth 1 origin data
           mkdir -p site/data
           git --work-tree=site/data checkout FETCH_HEAD -- build
-          mv site/data/build/*.json site/data/ && rmdir site/data/build
+          # Public files only: the model's projections and accuracy (fixtures.json, accuracy.json) stay off the site.
+          for f in teams players matches schedule gameweek meta; do mv "site/data/build/$f.json" site/data/; done
+          rm -rf site/data/build
           git reset -q
           ls -la site/data
 

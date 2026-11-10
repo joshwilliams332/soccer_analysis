@@ -63,6 +63,13 @@ def make_league(tmp):
             "elements": elements, "events": events}
     raw = os.path.join(tmp, "raw")
     os.makedirs(raw)
+    gw6 = [fx for fx in fixtures if fx["event"] == 6][0]
+    names = {t: n for t, n, _ in TEAMS}
+    d = gw6["kickoff_time"][:10]
+    with open(os.path.join(raw, "odds_fixtures.csv"), "w") as fh:
+        fh.write("Div,Date,Time,HomeTeam,AwayTeam,AvgH,AvgD,AvgA,Avg>2.5,Avg<2.5\n")
+        fh.write(f"E0,{d[8:10]}/{d[5:7]}/{d[:4]},15:00,{names[gw6['team_h']]},{names[gw6['team_a']]},2.5,3.4,2.8,1.8,2.0\n")
+        fh.write("SC0,01/01/2026,15:00,Celtic,Rangers,1.5,4,6,1.8,2.0\n")
     for name, data in (("bootstrap.json", boot), ("fixtures.json", fixtures), ("histories.json", histories)):
         with open(os.path.join(raw, name), "w") as fh:
             json.dump(data, fh)
@@ -84,6 +91,7 @@ class TestBuild(unittest.TestCase):
         cls.teams, cls.players = read("teams.json"), read("players.json")
         cls.matches, cls.fixtures = read("matches.json"), read("fixtures.json")
         cls.acc = read("accuracy.json")
+        cls.sched, cls.gwk = read("schedule.json"), read("gameweek.json")
 
     def test_meta(self):
         self.assertEqual(self.meta["season"], "2026-27")
@@ -135,6 +143,31 @@ class TestBuild(unittest.TestCase):
         p_alp = fx["probs"]["home"] if alp_home else fx["probs"]["away"]
         self.assertGreater(p_alp, 0.5)
 
+
+    def test_schedule_and_odds(self):
+        self.assertEqual(len(self.sched), 2)
+        with_odds = [fx for fx in self.sched if fx["odds"]]
+        self.assertEqual(len(with_odds), 1)
+        o = with_odds[0]["odds"]
+        self.assertEqual(o["us"]["h"], 150)
+        self.assertEqual(o["us"]["o25"], -125)
+        self.assertAlmostEqual(sum(o["implied"].values()), 1.0, places=2)
+        self.assertNotIn("proj", self.sched[0])  # public file: no model output
+
+    def test_american(self):
+        self.assertEqual(build_data.american(2.5), 150)
+        self.assertEqual(build_data.american(1.5), -200)
+        self.assertEqual(build_data.american(2.0), 100)
+        self.assertIsNone(build_data.american(1.0))
+
+    def test_gameweek(self):
+        self.assertEqual(self.gwk["gw"], 5)
+        self.assertEqual(len(self.gwk["results"]), 2)
+        for m in self.gwk["results"]:
+            self.assertTrue(0 < m["result_chance"] <= m["likeliest"] <= 1)
+        self.assertTrue(self.gwk["top"])
+        teams = {t["short"]: t for t in self.teams}
+        self.assertEqual(sorted(t["pos"] for t in teams.values()), [1, 2, 3, 4])
 
     def test_accuracy(self):
         rep = self.acc["replay"]
