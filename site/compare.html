@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mingus FC · Compare teams and players</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main class="wrap">
+  <div class="page-head"><div><h1>Compare</h1>
+    <div class="lede small">Pick two. Green = better of the two, red = worse.</div></div>
+    <div class="seg" id="mode"><button data-m="teams" class="on">Teams</button><button data-m="players">Players</button></div></div>
+  <div class="controls"><select id="a" aria-label="First"></select><span class="muted small">vs</span><select id="b" aria-label="Second"></select></div>
+  <div class="tbl-wrap"><table class="cmp" id="t"></table></div>
+</main>
+<script src="assets/common.js"></script>
+<script>
+MFC.header("compare.html");
+MFC.footer();
+const { esc, num, pct } = MFC;
+const el = (id) => document.getElementById(id);
+let teams = [], players = [], mode = MFC.param("mode") === "players" ? "players" : "teams";
+
+// [label, value(x), better: "high" | "low" | null, format]
+const n2 = (x) => num(x), n1 = (x) => num(x, 1), n0 = (x) => (x == null ? "–" : String(Math.round(x)));
+const TEAM_ROWS = [
+  ["League position", (t) => t.pos, "low", (x) => MFC.ord(x)], ["Points", (t) => t.pts, "high", n0],
+  ["Played", (t) => t.gp, null, n0], ["Won", (t) => t.w, "high", n0], ["Drawn", (t) => t.d, null, n0], ["Lost", (t) => t.l, "low", n0],
+  ["Goal difference", (t) => t.gd, "high", (x) => (x > 0 ? "+" : "") + x],
+  ["Goals scored a game", (t) => t.gf_pg, "high", n2], ["Goals allowed a game", (t) => t.ga_pg, "low", n2],
+  ["xG a game", (t) => t.xgf_pg, "high", n2], ["xG allowed a game", (t) => t.xga_pg, "low", n2],
+  ["xG difference a game", (t) => t.xgd_pg, "high", n2],
+  ["xG a game, last 6", (t) => t.last6.xgf_pg, "high", n2], ["xG allowed, last 6", (t) => t.last6.xga_pg, "low", n2],
+  ["xG a game at home", (t) => t.home.xgf_pg, "high", n2], ["xG allowed at home", (t) => t.home.xga_pg, "low", n2],
+  ["xG a game away", (t) => t.away.xgf_pg, "high", n2], ["xG allowed away", (t) => t.away.xga_pg, "low", n2],
+  ["Expected points", (t) => t.xpts, "high", n1],
+  ["Points minus expected", (t) => t.pts_minus_xpts, null, (x) => (x > 0 ? "+" : "") + num(x, 1)],
+  ["Goals minus xG", (t) => t.finishing, null, (x) => (x > 0 ? "+" : "") + num(x, 1)],
+];
+const PLAYER_ROWS = [
+  ["Team", (p) => p.team_short, null, (x) => esc(x)], ["Position", (p) => p.pos, null, (x) => x],
+  ["FPL price", (p) => p.cost, null, (x) => `£${num(x, 1)}`], ["FPL ownership", (p) => p.own, null, (x) => `${num(x, 1)}%`],
+  ["FPL points", (p) => p.fpl_pts, "high", n0], ["Starts", (p) => p.starts, "high", n0], ["Minutes", (p) => p.min, "high", n0],
+  ["Goals", (p) => p.g, "high", n0], ["Assists", (p) => p.a, "high", n0],
+  ["xG", (p) => p.xg, "high", n2], ["xA", (p) => p.xa, "high", n2],
+  ["xG per 90", (p) => p.xg90, "high", n2], ["xA per 90", (p) => p.xa90, "high", n2], ["xGI per 90", (p) => p.xgi90, "high", n2],
+  ["Minutes per xGI", (p) => (p.xgi > 0 ? p.min / p.xgi : null), "low", n0],
+  ["Share of team xG", (p) => p.xg_share, "high", (x) => pct(x)],
+  ["Goals minus xG", (p) => p.g_minus_xg, null, (x) => (x > 0 ? "+" : "") + num(x, 1)],
+  ["Defensive contributions per 90", (p) => p.dc90, "high", n1], ["Clean sheets", (p) => p.cs, "high", n0],
+  ["xG conceded per 90 on the pitch", (p) => p.xgc90, "low", n2],
+  ["Penalties", (p) => (p.pens === 1 ? "First" : p.pens ? `#${p.pens}` : "–"), null, (x) => x],
+];
+
+function options() {
+  const list = mode === "teams"
+    ? [...teams].sort((x, y) => x.name.localeCompare(y.name)).map((t) => [t.id, t.name])
+    : players.filter((p) => p.min >= 90).sort((x, y) => x.name.localeCompare(y.name)).map((p) => [p.id, `${p.name} (${p.team_short})`]);
+  const html = list.map(([id, label]) => `<option value="${id}">${esc(label)}</option>`).join("");
+  el("a").innerHTML = html; el("b").innerHTML = html;
+  const a = MFC.param("a"), b = MFC.param("b");
+  const ids = list.map((x) => String(x[0]));
+  const pick = (want, fallback) => (want && ids.includes(want) ? want : fallback);
+  if (mode === "teams") {
+    el("a").value = pick(a, String(teams[0].id)); el("b").value = pick(b, String(teams[1].id));
+  } else {
+    const top = [...players].sort((x, y) => y.xgi - x.xgi);
+    el("a").value = pick(a, String(top[0].id)); el("b").value = pick(b, String(top[1].id));
+  }
+}
+
+function render() {
+  const rows = mode === "teams" ? TEAM_ROWS : PLAYER_ROWS;
+  const pool = mode === "teams" ? teams : players;
+  const A = pool.find((x) => String(x.id) === el("a").value), B = pool.find((x) => String(x.id) === el("b").value);
+  if (!A || !B) return;
+  const head = (x) => (mode === "teams" ? MFC.team(x.short, x.name) : `${MFC.dot(x.team_short)} ${esc(x.name)}`);
+  el("t").innerHTML = `<tr><th></th><th style="text-align:center">${head(A)}</th><th style="text-align:center">${head(B)}</th></tr>`
+    + rows.map(([label, val, better, fmt]) => {
+      const va = val(A), vb = val(B);
+      let ca = "", cb = "";
+      if (better && typeof va === "number" && typeof vb === "number" && va !== vb) {
+        const aWins = better === "high" ? va > vb : va < vb;
+        ca = aWins ? "better" : "worse"; cb = aWins ? "worse" : "better";
+      }
+      const f = (v) => (v == null ? "–" : fmt(v));
+      return `<tr><td>${label}</td><td class="v ${ca}">${f(va)}</td><td class="v ${cb}">${f(vb)}</td></tr>`;
+    }).join("");
+  history.replaceState(null, "", `?mode=${mode}&a=${el("a").value}&b=${el("b").value}`);
+}
+
+el("mode").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b || b.dataset.m === mode) return;
+  mode = b.dataset.m;
+  document.querySelectorAll("#mode button").forEach((x) => x.classList.toggle("on", x === b));
+  history.replaceState(null, "", `?mode=${mode}`);
+  options(); render();
+});
+["a", "b"].forEach((id) => el(id).addEventListener("change", render));
+
+Promise.all([MFC.load("teams"), MFC.load("players")]).then(([t, p]) => {
+  teams = t; players = p;
+  document.querySelectorAll("#mode button").forEach((x) => x.classList.toggle("on", x.dataset.m === mode));
+  options(); render();
+}).catch((e) => MFC.fail(el("t").parentElement, e));
+</script>
+</body>
+</html>

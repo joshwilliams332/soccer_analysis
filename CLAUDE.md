@@ -15,21 +15,30 @@ Sports project: `claude/mingus-team-charter.md`. The plan is `claude/plans/premi
 - Work ships as branch, then PR, then Josh merges. Run `python3 -m unittest discover -s tests` before pushing.
 
 ## Site (GitHub Pages: https://joshwilliams332.github.io/soccer_analysis/)
-- Static pages in `site/`, no build step: `index.html` (matches by gameweek), `match.html?id=` (preview),
-  `table.html` (xG table: season / last 6 / home / away, tap to sort), `players.html` (per-90 xG / xA lists),
-  `model.html` (how it works + accuracy from `accuracy.json`).
-  Shared helpers (`MFC`: load, format, rank chips, header, footer) in `site/assets/common.js`; styles in `style.css`.
-- The workflow's `deploy` job (not on PRs) copies the `data` branch `build/*.json` into `site/data/`, adds a
-  commit-hash `?v=` to the shared files and deploys. Pages source must be "GitHub Actions". Never commit `site/data/`.
-- Look (Josh, Nov 10): football stats-table style, not the paper-notebook brand kit: dark header with a green rule,
-  white cards and tables on light grey, Archivo with tabular numbers. Mingus mark + "FC" tag; no Premier League
-  logo, purple or fonts, no club crests (teams as names or abbreviations).
-- **Colors mean good / bad: green = good, white = okay, red = bad** (`MFC.tone`: top quarter of a ranking green,
-  bottom quarter red; 1 = best, so for "allowed" stats fewest = 1st). Form chips W green / D grey / L red, last 5.
-  Win / draw / loss bars stay neutral (who wins isn't good or bad). Matchup notes are dotted from the attacking side's view.
-- Every page carries the sources line and "For entertainment · 21+ · Gamble responsibly · 1-800-GAMBLER";
-  projections carry the dashed MINGUS ESTIMATE tag.
-- Check every change at 390px and desktop: copy `site/` and the data branch's `build/*.json` (as `data/`) into a
+- **No model on the site (Josh, Nov 10).** The goals model runs in the background (build, frozen previews, accuracy,
+  backtest) but the public site shows facts: who's playing, free odds, records, league position, xG comparisons.
+  The deploy job publishes only `teams, players, matches, schedule, gameweek, meta` (not `fixtures.json` /
+  `accuracy.json`, which hold model output). Don't add projections back without asking.
+- Pages in `site/`, no build step:
+  - `index.html` Matches: next two gameweeks (time, position, points, form, odds when published), last gameweek's
+    results (goals and xG side by side, green = higher, red = lower, plus "xG says": how likely that result was from
+    the chances, colored against the likeliest result so draws aren't always red), player of the week (FPL points).
+  - `match.html?id=` head-to-head table (green = better of the two, red = worse), odds, key players, injuries, last 5.
+  - `table.html` league table (Pos, Pts, GD first for phones) + xG / last 6 / home / away views, tap to sort.
+  - `players.html` dense sortable table (FPL price, ownership, points, starts, G, A, xG, xA, min per xGI, DC, CS, xGC);
+    the sorted column moves next to the name; green / red = top / bottom quarter of the list.
+  - `compare.html?mode=teams|players&a=&b=` any two teams or players side by side.
+- Shared helpers in `site/assets/common.js` (`MFC`: load, format, `tone`, `dot` club color dots, `team`, `us` odds,
+  header, footer); styles in `style.css`.
+- Odds: `scripts/odds.py` pulls football-data.co.uk `fixtures.csv` (free; upcoming round, updated a couple of times a
+  week) → `raw/odds_fixtures.csv`; `build_data.schedule()` matches it to fixtures (date ±1 day, `model.team_key`),
+  shows the bookmaker average as US odds plus the implied chance. No odds file = "Odds not out yet". No Odds API credits.
+- Look (Josh, Nov 10): simple and easy to compare, inspired by stats tables he likes: dark header with a green rule,
+  white tables on light grey, Archivo with tabular numbers. Mingus mark + "FC" tag. No Premier League logo / purple /
+  fonts, no crests, kits or player photos (our own two-color club dots only).
+- **Colors mean good / bad: green = better, white = okay, red = worse.** Form chips W green / D grey / L red, last 5.
+- Every page carries the sources line and "For entertainment · 21+ · Gamble responsibly · 1-800-GAMBLER".
+- Check every change at 390px and desktop: copy `site/` and the data branch's public `build/*.json` (as `data/`) into a
   folder, `python3 -m http.server`, screenshot with Playwright (`/usr/bin/google-chrome`). Long team names get a
   smaller `long` class on phones.
 
@@ -65,8 +74,8 @@ Sports project: `claude/mingus-team-charter.md`. The plan is `claude/plans/premi
   team xG = sum of players') and football-data.co.uk `E0.csv` (closing odds) to the **`history`** branch. FPL xG starts
   at 2022-23 GW16; earlier matches are goals-only.
 - Run: fetch the `history` branch (`hist/`) and the `data` branch (`build/`), then
-  `python3 scripts/backtest.py --hist <hist> --current <data dir> --json site/backtest.json --priors scripts/priors.json`.
-  `site/backtest.json` is committed and shown on the Model page.
+  `python3 scripts/backtest.py --hist <hist> --current <data dir> --json reports/backtest.json --priors scripts/priors.json`.
+  `reports/backtest.json` is committed (internal; not on the site).
 - Market = closing prices, margin removed: Pinnacle, else Betfair Exchange (Pinnacle columns stop mid 2025-26), else
   average. Scored from GW4. v1 tuned on 2022-23 to 2025-26, 2026-27 held out.
 - Nov 10 results (log loss, home / draw / away): v0 0.998, **v1 0.984**, closing odds **0.965**, base rate 1.075.
@@ -74,7 +83,7 @@ Sports project: `claude/mingus-team-charter.md`. The plan is `claude/plans/premi
   2024-25; a flat-stakes test swung +61 to -28 units by season. **No proven edge over bookmakers.** Over 2.5: about
   the baseline; the odds are better. Don't claim an edge publicly.
 
-## Accuracy (`scripts/accuracy.py`, rebuilt every run into `build/accuracy.json`, shown on `model.html`)
+## Accuracy (`scripts/accuracy.py`, rebuilt every run into `build/accuracy.json`; internal, not deployed)
 - **Replay:** every match from GW4 on, predicted only from earlier gameweeks with today's settings, vs a baseline
   that knows only earlier home / draw / away and over 2.5 rates. Nov 10 with v1 (70 matches): log loss 1.024 vs 1.095;
   over 2.5 about the baseline; goals 2.85 projected vs 2.69 actual (v0 was 2.94).

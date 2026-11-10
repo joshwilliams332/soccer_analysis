@@ -172,6 +172,9 @@ def build(raw_dir, build_dir, now=None, log_dir=None):
     rank(team_rows, "xpts")
     rank(team_rows, "pts")
     team_rows.sort(key=lambda t: (-t["pts"], -(t["gf"] - t["ga"]), -t["gf"], t["name"]))
+    for i, t in enumerate(team_rows):
+        t["pos"] = i + 1
+        t["gd"] = t["gf"] - t["ga"]
 
     # ---- Players ----
     team_finished = {tid: [g["id"] for g in games] for tid, games in team_games.items()}
@@ -211,6 +214,8 @@ def build(raw_dir, build_dir, now=None, log_dir=None):
             "status": status, "chance": chance, "news": p.get("news") or "",
             "pens": p.get("penalties_order"), "corners": p.get("corners_and_indirect_freekicks_order"),
             "fks": p.get("direct_freekicks_order"),
+            "cost": (p.get("now_cost") or 0) / 10, "own": f(p.get("selected_by_percent")),
+            "fpl_pts": p.get("total_points", 0), "cs": int(tot("clean_sheets")),
         })
 
     gws_played = max((m["gw"] or 0 for m in matches), default=0)
@@ -320,7 +325,110 @@ def build(raw_dir, build_dir, now=None, log_dir=None):
     save(build_dir, "matches.json", match_rows)
     save(build_dir, "fixtures.json", upcoming)
     save(build_dir, "meta.json", meta)
+
+    # ---- Public files (no model output): schedule with free odds, last gameweek ----
+    save(build_dir, "schedule.json", schedule(fixtures, next_gw, short, teams, upcoming, raw_dir))
+    save(build_dir, "gameweek.json", last_gameweek(matches, histories, elements, short, POS))
     return meta
+
+
+def american(dec):
+    """Decimal odds -> American (e.g. 2.5 -> +150, 1.5 -> -200)."""
+    if not dec or dec <= 1:
+        return None
+    return round((dec - 1) * 100) if dec >= 2 else -round(100 / (dec - 1))
+
+
+def load_fixture_odds(raw_dir):
+    """{(date, home key, away key): odds} from football-data.co.uk fixtures.csv (average of bookmakers)."""
+    import csv
+    path = os.path.join(raw_dir, "odds_fixtures.csv")
+    out = {}
+    if not os.path.exists(path):
+        return out
+    with open(path, encoding="utf-8-sig") as fh:
+        for r in csv.DictReader(fh):
+            try:
+                d = datetime.strptime(r["Date"], "%d/%m/%Y" if len(r["Date"]) == 10 else "%d/%m/%y").date()
+            except (KeyError, ValueError):
+                continue
+            price = {}
+            for pre, label in (("Avg", "avg"), ("B365", "b365")):
+                h, dr, a = (f(r.get(pre + k)) for k in "HDA")
+                if h > 1 and dr > 1 and a > 1:
+                    price = {"h": h, "d": dr, "a": a, "src": label}
+                    o, u = f(r.get(f"{pre}>2.5")), f(r.get(f"{pre}<2.5"))
+                    if o > 1 and u > 1:
+                        price.update({"o25": o, "u25": u})
+                    break
+            if price:
+                out[(d, model.team_key(r.get("HomeTeam", "")), model.team_key(r.get("AwayTeam", "")))] = price
+    return out
+
+
+def schedule(fixtures, next_gw, short, teams, upcoming, raw_dir):
+    """Next two gameweeks: who's playing, free bookmaker odds when published, injuries. No projections."""
+    from datetime import date, timedelta
+    odds = load_fixture_odds(raw_dir)
+    outs = {fx["id"]: fx["out"] for fx in upcoming}
+    rows = []
+    if not next_gw:
+        return rows
+    for fx in sorted(fixtures, key=lambda x: x.get("kickoff_time") or ""):
+        if fx.get("finished") or fx.get("event") not in (next_gw, next_gw + 1):
+            continue
+        hk, ak = model.team_key(teams[fx["team_h"]]["name"]), model.team_key(teams[fx["team_a"]]["name"])
+        o = None
+        if fx.get("kickoff_time"):
+            d = date.fromisoformat(fx["kickoff_time"][:10])
+            for dd in (d, d - timedelta(days=1), d + timedelta(days=1)):
+                o = odds.get((dd, hk, ak))
+                if o:
+                    break
+        if o:
+            inv = [1 / o["h"], 1 / o["d"], 1 / o["a"]]
+            o = dict(o, us={k: american(o[k]) for k in ("h", "d", "a", "o25", "u25") if k in o},
+                     implied={k: round(x / sum(inv), 3) for k, x in zip("hda", inv)})
+        rows.append({"id": fx["id"], "gw": fx["event"], "kickoff": fx.get("kickoff_time"),
+                     "home": fx["team_h"], "away": fx["team_a"],
+                     "home_short": short.get(fx["team_h"]), "away_short": short.get(fx["team_a"]),
+                     "odds": o, "out": outs.get(fx["id"], {"home": [], "away": []})})
+    return rows
+
+
+def last_gameweek(matches, histories, elements, short, pos_names):
+    """Latest gameweek with results: score, team xG, how likely that result was from the chances; top performers."""
+    done = [m for m in matches if m.get("gw")]
+    if not done:
+        return {}
+    gw = max(m["gw"] for m in done)
+    results = []
+    for m in (x for x in done if x["gw"] == gw):
+        row = {"id": m["id"], "kickoff": m["kickoff"], "home": m["home"], "away": m["away"],
+               "home_short": short.get(m["home"]), "away_short": short.get(m["away"]),
+               "hg": m["hg"], "ag": m["ag"], "hxg": r(m["hxg"]), "axg": r(m["axg"]), "result_chance": None}
+        if m["hxg"] is not None:
+            p = model.match_probs(max(m["hxg"], 0.01), max(m["axg"], 0.01), rho=0.0, top=0)
+            res = "home" if m["hg"] > m["ag"] else "draw" if m["hg"] == m["ag"] else "away"
+            row["result_chance"] = round(p[res], 3)
+            row["likeliest"] = round(max(p["home"], p["draw"], p["away"]), 3)
+        results.append(row)
+    ids = {m["id"] for m in done if m["gw"] == gw}
+    perf = []
+    for pid, rows in histories.items():
+        el = elements.get(int(pid))
+        mine = [x for x in rows if x.get("fixture") in ids and x.get("minutes", 0) > 0]
+        if not el or not mine:
+            continue
+        perf.append({"id": el["id"], "name": el["web_name"], "team_short": short.get(el["team"]),
+                     "pos": pos_names[el["element_type"]],
+                     "pts": sum(x.get("total_points", 0) for x in mine),
+                     "g": sum(x.get("goals_scored", 0) for x in mine), "a": sum(x.get("assists", 0) for x in mine),
+                     "xg": r(sum(f(x.get("expected_goals")) for x in mine)),
+                     "xa": r(sum(f(x.get("expected_assists")) for x in mine)),
+                     "min": sum(x.get("minutes", 0) for x in mine)})
+    perf.sort(key=lambda x: (-x["pts"], -(x["xg"] + x["xa"])))
+    return {"gw": gw, "results": results, "top": perf[:5]}
 
 
 def main():

@@ -169,3 +169,71 @@ footer.foot .rg { color: #fff; font-weight: 800; margin-top: 8px; }
   .fx-team { font-size: 15px; }
   .fx-team.long { font-size: 13px; }
 }
+
+/* ---- Simple compare look (Josh, Nov 10): who's playing, odds, records; green better / red worse ---- */
+.dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(16, 24, 32, .25); flex: none; vertical-align: -1px; }
+.tm { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; min-width: 0; }
+.tm.r { flex-direction: row-reverse; }
+.posn { font: 700 11px/1 var(--sans); color: var(--muted); }
+
+/* Fixture rows */
+.fxl { list-style: none; margin: 0; padding: 0; }
+.fxl a { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; padding: 11px 4px; border-bottom: 1px solid var(--line); color: var(--ink); }
+.fxl li:last-child a { border-bottom: 0; }
+.fxl a:hover { text-decoration: none; background: #F7F9F8; }
+.fxl .side { min-width: 0; }
+.fxl .side.away { text-align: right; }
+.fxl .side .tm { font-size: 15px; }
+.fxl .side .sub2 { display: block; font: 600 11px/1.3 var(--sans); color: var(--muted); margin-top: 3px; }
+.fxl .mid { text-align: center; font: 800 12px/1.2 var(--sans); color: var(--muted); white-space: nowrap; }
+.odds3 { display: flex; gap: 4px; justify-content: center; margin-top: 5px; }
+.odds3 span { font: 700 11.5px/1 var(--sans); background: var(--bg); border-radius: 5px; padding: 5px 5px; color: var(--ink); min-width: 42px; text-align: center; }
+.odds3 span small { display: block; font-size: 9px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+
+/* Result rows: goals and xG side by side */
+.rs { width: 100%; border-collapse: separate; border-spacing: 0 6px; font: 13px/1.2 var(--sans); }
+.rs td { padding: 0; border: 0; white-space: normal; }
+.rs .t { font-weight: 800; }
+.rs .t.h { text-align: right; padding-right: 8px; }
+.rs .t.a { text-align: left; padding-left: 8px; }
+.rs .box { width: 46px; text-align: center; }
+.rs .box b { display: block; font-size: 15px; padding: 5px 0 3px; }
+.rs .box span { display: block; font-size: 11.5px; font-weight: 700; padding: 3px 0 5px; }
+.rs .lbl { width: 28px; text-align: center; font: 800 10px/1.3 var(--sans); color: #fff; background: var(--ink); }
+.rs .lbl span { display: block; padding: 5px 0; }
+.rs .lbl span + span { background: #4B5853; }
+.rs .up { background: var(--good-bg); color: var(--good); }
+.rs .down { background: var(--bad-bg); color: var(--bad); }
+.rs .even { background: #fff; border: 1px solid var(--line); }
+.rs .ch { width: 58px; text-align: center; font-weight: 800; border-radius: 6px; padding: 9px 0; }
+.rs tr td:nth-child(2) { border-radius: 6px 0 0 6px; }
+
+/* Player of the week */
+.potw { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; background: var(--head); color: #fff; border-radius: 12px; padding: 14px; }
+.potw .k { font: 700 11px/1 var(--sans); color: #AEB8B3; text-transform: uppercase; letter-spacing: .06em; }
+.potw .n { font: 800 24px/1.1 var(--sans); margin: 4px 0; }
+.potw .pts { font: 800 34px/1 var(--sans); background: var(--accent); border-radius: 10px; padding: 10px 14px; text-align: center; }
+.potw .pts small { display: block; font-size: 10px; font-weight: 700; margin-top: 3px; }
+
+/* Compare tables: the better side green, the worse red, level white */
+.cmp { table-layout: fixed; }
+.cmp td, .cmp th { white-space: normal; }
+.cmp th:first-child, .cmp td:first-child { text-align: left; width: 38%; color: var(--muted); font-weight: 700; font-size: 12.5px; }
+.cmp td.v { text-align: center; font-weight: 800; font-size: 14px; }
+.cmp td.v small { display: block; font-size: 10.5px; font-weight: 600; color: inherit; opacity: .8; }
+td.better { background: var(--good-bg); color: var(--good); }
+td.worse { background: var(--bad-bg); color: var(--bad); }
+
+/* Dense sortable stats table */
+.dense th, .dense td { padding: 8px 7px; font-size: 13px; }
+.dense th { cursor: pointer; white-space: normal; min-width: 44px; line-height: 1.15; vertical-align: bottom; }
+.dense th.sorted { background: #D5F0DC; color: var(--ink); }
+.dense td.sorted { font-weight: 800; }
+.dense td.g { background: var(--good-bg); color: var(--good); }
+.dense td.b { background: var(--bad-bg); color: var(--bad); }
+.dense td.name { font-weight: 800; }
+.dense td.name small { display: block; font-weight: 600; color: var(--muted); font-size: 11px; }
+.dense tbody tr:nth-child(even) td { background-color: #FAFBFA; }
+.dense tbody tr:nth-child(even) td.g { background: var(--good-bg); }
+.dense tbody tr:nth-child(even) td.b { background: var(--bad-bg); }
+.dense tbody tr:nth-child(even) td.sticky { background: #FAFBFA; }

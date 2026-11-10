@@ -35,7 +35,24 @@ const MFC = (() => {
     <circle cx="92" cy="20" r="10.5" fill="#2747D6" opacity=".22"/><circle cx="92" cy="20" r="6" fill="#2747D6" stroke="#101820" stroke-width="2.5"/>
   </svg>`;
 
-  const NAV = [["index.html", "Matches"], ["table.html", "Table"], ["players.html", "Players"], ["model.html", "Model"]];
+  const NAV = [["index.html", "Matches"], ["table.html", "Table"], ["players.html", "Players"], ["compare.html", "Compare"]];
+
+  /* Small two-color dot per club (our own simple colors; no crests or kits). */
+  const COLORS = {
+    ARS: ["#DB0007", "#FFFFFF"], AVL: ["#670E36", "#95BFE5"], BOU: ["#DA291C", "#000000"], BRE: ["#E30613", "#FFFFFF"],
+    BHA: ["#0057B8", "#FFFFFF"], BUR: ["#6C1D45", "#99D6EA"], CHE: ["#034694", "#034694"], COV: ["#6CABDD", "#FFFFFF"],
+    CRY: ["#1B458F", "#C4122E"], EVE: ["#003399", "#003399"], FUL: ["#FFFFFF", "#000000"], HUL: ["#F5A12D", "#000000"],
+    IPS: ["#0044A9", "#FFFFFF"], LEE: ["#FFFFFF", "#1D428A"], LEI: ["#003090", "#FDBE11"], LIV: ["#C8102E", "#C8102E"],
+    MCI: ["#6CABDD", "#6CABDD"], MUN: ["#DA291C", "#DA291C"], NEW: ["#241F20", "#FFFFFF"], NFO: ["#DD0000", "#DD0000"],
+    SHU: ["#EE2737", "#FFFFFF"], SOU: ["#D71920", "#FFFFFF"], SUN: ["#EB172B", "#FFFFFF"], TOT: ["#FFFFFF", "#132257"],
+    WHU: ["#7A263A", "#1BB1E7"], WOL: ["#FDB913", "#231F20"], LUT: ["#F78F1E", "#002D62"],
+  };
+  const dot = (ab) => {
+    const [a, b] = COLORS[ab] || ["#9CA3AF", "#9CA3AF"];
+    return `<span class="dot" style="background:linear-gradient(90deg,${a} 50%,${b} 50%)"></span>`;
+  };
+  const team = (ab, name) => `<span class="tm">${dot(ab)}${esc(name ?? ab)}</span>`;
+  const us = (n) => (n == null ? "–" : n > 0 ? `+${n}` : `${n}`);
 
   function header(active) {
     const el = document.createElement("header");
@@ -56,10 +73,10 @@ const MFC = (() => {
       built = `Updated ${ago(meta.built)} · ${esc(meta.season)} season · through gameweek ${meta.last_finished_gw ?? "–"}<br>`;
     } catch (e) { /* footer still renders */ }
     el.innerHTML = `<div class="wrap">${built}
-      Data: Fantasy Premier League public data (player xG and xA; team xG is the sum of its players'). Projections,
-      probabilities and ranks are Mingus estimates from that data, not sportsbook lines.<br>
+      Data: Fantasy Premier League public data (player xG and xA; team xG is the sum of its players'). Odds: average of
+      bookmakers via football-data.co.uk when published. Ranks and colors are Mingus's own comparisons.<br>
       <div class="rg">For entertainment · 21+ · Gamble responsibly · 1-800-GAMBLER</div>
-      <div>Mingus FC · <a href="model.html" style="color:#fff">How accurate are the projections?</a></div></div>`;
+      <div>Mingus FC</div></div>`;
     document.body.append(el);
   }
 
@@ -67,5 +84,5 @@ const MFC = (() => {
     where.innerHTML = `<div class="card empty">Couldn't load the data (${esc(err.message)}). Try again in a minute.</div>`;
   }
 
-  return { load, esc, num, pct, ord, param, rk, tone, form, day, time, dayKey, header, footer, fail };
+  return { load, esc, num, pct, ord, param, rk, tone, form, dot, team, us, day, time, dayKey, header, footer, fail };
 })();

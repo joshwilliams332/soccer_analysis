@@ -10,12 +10,12 @@
 </head>
 <body>
 <main class="wrap">
-  <div class="page-head"><div><h1>The xG table</h1>
-    <div class="lede small">Who's creating chances, who's allowing them, and who's been lucky. Tap a column to sort.</div></div></div>
+  <div class="page-head"><div><h1>Premier League table</h1>
+    <div class="lede small">The real table, plus who's creating chances, who's allowing them, and who's been lucky. Tap a column to sort.</div></div></div>
   <div class="controls"><div class="seg" id="view">
-    <button data-v="season" class="on">Season</button><button data-v="last6">Last 6</button><button data-v="home">Home</button><button data-v="away">Away</button>
+    <button data-v="table" class="on">Table</button><button data-v="season">xG</button><button data-v="last6">Last 6</button><button data-v="home">Home</button><button data-v="away">Away</button>
   </div></div>
-  <div class="tbl-wrap"><table id="t"></table></div>
+  <div class="tbl-wrap"><table id="t" class="dense"></table></div>
   <div class="card small" style="margin-top:12px">
     <b>xG</b> expected goals created · <b>xGA</b> expected goals allowed · <b>xPts</b> points the chances would earn on average ·
     <b>Pts − xPts</b> above 0 = results ahead of the chances (luck or great finishing / goalkeeping).
@@ -28,10 +28,13 @@ MFC.header("table.html");
 MFC.footer();
 const { esc, num, rk } = MFC;
 const t = document.getElementById("t");
-let view = "season", sortKey = "pts", asc = false, rows = [];
+let view = "table", sortKey = "pos", asc = true, rows = [];
 
 // [key, label, value(row), higher is better, decimals]
 const COLS = {
+  table: [["pos", "Pos", (r) => r.pos, false, 0], ["pts", "Pts", (r) => r.pts, null, 0], ["gd", "GD", (r) => r.gd, null, 0],
+    ["gp", "P", (r) => r.gp, null, 0], ["w", "W", (r) => r.w, null, 0], ["d", "D", (r) => r.d, null, 0],
+    ["l", "L", (r) => r.l, null, 0], ["gf", "GF", (r) => r.gf, null, 0], ["ga", "GA", (r) => r.ga, null, 0]],
   season: [["gp", "P", (r) => r.gp, null, 0], ["pts", "Pts", (r) => r.pts, true, 0], ["xpts", "xPts", (r) => r.xpts, true, 1],
     ["luck", "Pts−xPts", (r) => r.pts_minus_xpts, null, 1], ["xgf", "xG/g", (r) => r.season.xgf_pg, true, 2],
     ["xga", "xGA/g", (r) => r.season.xga_pg, false, 2], ["xgd", "xGD/g", (r) => r.xgd_pg, true, 2],
@@ -52,18 +55,22 @@ function rankOf(col, r) {
 
 function render() {
   const cols = COLS[view];
-  if (!cols.find((c) => c[0] === sortKey)) { sortKey = cols[1][0]; asc = false; }
+  if (!cols.find((c) => c[0] === sortKey)) { sortKey = view === "table" ? "pos" : cols[1][0]; asc = view === "table"; }
   const col = cols.find((c) => c[0] === sortKey);
   const sorted = [...rows].sort((x, y) => {
     const a = col[2](x) ?? -Infinity, b = col[2](y) ?? -Infinity;
-    return (asc ? a - b : b - a) || y.pts - x.pts;
+    return (asc ? a - b : b - a) || x.pos - y.pos;
   });
-  t.innerHTML = `<thead><tr><th class="l sticky">#&nbsp;Team</th>${cols.map((c) =>
+  const showForm = view === "table" || view === "season";
+  t.innerHTML = `<thead><tr><th class="l sticky">Team</th>${cols.map((c) =>
     `<th class="sortable ${c[0] === sortKey ? "sorted" + (asc ? " asc" : "") : ""}" data-k="${c[0]}">${c[1]}</th>`).join("")}
-    ${view === "season" ? '<th class="l">Form</th>' : ""}</tr></thead>
-    <tbody>${sorted.map((r, i) => `<tr><td class="l sticky"><span class="muted">${i + 1}</span>&nbsp;<b>${esc(r.short)}</b></td>
-      ${cols.map((c) => { const v = c[2](r); return `<td>${c[0] === "luck" && v > 0 ? "+" : ""}${num(v, c[4])}${c[3] == null ? "" : rk(rankOf(c, r))}</td>`; }).join("")}
-      ${view === "season" ? `<td class="l">${MFC.form(r.form)}</td>` : ""}</tr>`).join("")}</tbody>`;
+    ${showForm ? '<th class="l">Form</th>' : ""}</tr></thead>
+    <tbody>${sorted.map((r) => `<tr><td class="l sticky">${MFC.team(r.short, r.short)}</td>
+      ${cols.map((c) => { const v = c[2](r);
+        if (c[0] === "pos") return `<td><b>${v}</b></td>`;
+        const sign = (c[0] === "luck" || c[0] === "gd") && v > 0 ? "+" : "";
+        return `<td class="${c[0] === sortKey ? "sorted" : ""}">${sign}${num(v, c[4])}${c[3] == null ? "" : rk(rankOf(c, r))}</td>`; }).join("")}
+      ${showForm ? `<td class="l">${MFC.form(r.form)}</td>` : ""}</tr>`).join("")}</tbody>`;
 }
 
 t.addEventListener("click", (e) => {
