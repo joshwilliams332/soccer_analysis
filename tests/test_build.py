@@ -154,6 +154,18 @@ class TestBuild(unittest.TestCase):
         self.assertAlmostEqual(sum(o["implied"].values()), 1.0, places=2)
         self.assertNotIn("proj", self.sched[0])  # public file: no model output
 
+    def test_team_files(self):
+        with open(os.path.join(self.out, "teams", "1.json")) as fh:
+            d = json.load(fh)
+        self.assertEqual(len(d["results"]), 5)  # ALP played GW1-5
+        self.assertEqual({r["res"] for r in d["results"]} <= {"W", "D", "L"}, True)
+        logs = d["logs"]
+        self.assertTrue(logs)
+        injured = next(p for p in self.players if p["team_short"] == "ALP" and p["status"] == "i")
+        log = logs[str(injured["id"])]
+        self.assertEqual([g["min"] for g in log], [90, 90, 0, 0, 0])  # hurt after GW2: DNP rows kept
+        self.assertIn("opp_short", log[0])
+
     def test_american(self):
         self.assertEqual(build_data.american(2.5), 150)
         self.assertEqual(build_data.american(1.5), -200)

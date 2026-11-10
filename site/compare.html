@@ -77,7 +77,7 @@ function render() {
   const pool = mode === "teams" ? teams : players;
   const A = pool.find((x) => String(x.id) === el("a").value), B = pool.find((x) => String(x.id) === el("b").value);
   if (!A || !B) return;
-  const head = (x) => (mode === "teams" ? MFC.team(x.short, x.name) : `${MFC.dot(x.team_short)} ${esc(x.name)}`);
+  const head = (x) => (mode === "teams" ? MFC.tlink(x.id, x.short, x.name) : `${MFC.dot(x.team_short)} ${MFC.plink(x.id, x.name)}`);
   el("t").innerHTML = `<tr><th></th><th style="text-align:center">${head(A)}</th><th style="text-align:center">${head(B)}</th></tr>`
     + rows.map(([label, val, better, fmt]) => {
       const va = val(A), vb = val(B);

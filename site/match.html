@@ -32,7 +32,7 @@ function keyPlayers(players, teamId) {
   const rows = players.filter((p) => p.team === teamId && p.min >= 180).sort((a, b) => b.xgi - a.xgi).slice(0, 5);
   return `<div class="tbl-wrap"><table>
     <tr><th class="l">Player</th><th>Min</th><th>G</th><th>A</th><th>xG</th><th>xA</th></tr>
-    ${rows.map((p) => `<tr><td class="l"><b>${esc(p.name)}</b> ${p.pens === 1 ? '<span class="pill">PEN</span>' : ""}
+    ${rows.map((p) => `<tr><td class="l"><b>${MFC.plink(p.id, p.name)}</b> ${p.pens === 1 ? '<span class="pill">PEN</span>' : ""}
       ${p.status !== "a" ? `<span class="pill doubt">${p.chance}%</span>` : ""}</td>
       <td>${p.min}</td><td>${p.g}</td><td>${p.a}</td><td>${num(p.xg, 1)}</td><td>${num(p.xa, 1)}</td></tr>`).join("")}
   </table></div>`;
@@ -79,10 +79,10 @@ Promise.all([MFC.load("schedule"), MFC.load("teams"), MFC.load("matches"), MFC.l
   page.innerHTML = `<div class="m-hero">
       <div class="m-head"><div class="small muted">GAMEWEEK ${fx.gw} · ${MFC.day(fx.kickoff)} · ${MFC.time(fx.kickoff)}</div></div>
       <div class="m-teams">
-        <div class="m-team"><h1 class="${h.name.length > 10 ? "long" : ""}">${esc(h.name)}</h1><div class="form">${form(h.form)}</div>
+        <div class="m-team"><h1 class="${h.name.length > 10 ? "long" : ""}"><a class="lk" href="${MFC.teamUrl(h.id)}">${esc(h.name)}</a></h1><div class="form">${form(h.form)}</div>
           <div class="small muted rec">${MFC.ord(h.pos)} · ${h.pts} pts</div></div>
         <div class="m-score" style="font-size:18px">vs</div>
-        <div class="m-team" style="text-align:right"><h1 class="${a.name.length > 10 ? "long" : ""}">${esc(a.name)}</h1><div class="form">${form(a.form)}</div>
+        <div class="m-team" style="text-align:right"><h1 class="${a.name.length > 10 ? "long" : ""}"><a class="lk" href="${MFC.teamUrl(a.id)}">${esc(a.name)}</a></h1><div class="form">${form(a.form)}</div>
           <div class="small muted rec">${MFC.ord(a.pos)} · ${a.pts} pts</div></div>
       </div>
       ${o ? `<div class="odds3" style="margin-top:14px;flex-wrap:wrap">
@@ -96,7 +96,7 @@ Promise.all([MFC.load("schedule"), MFC.load("teams"), MFC.load("matches"), MFC.l
 
     <h2>Head to head</h2>
     <div class="tbl-wrap"><table class="cmp">
-      <tr><th></th><th style="text-align:center">${MFC.team(h.short, h.short)}</th><th style="text-align:center">${MFC.team(a.short, a.short)}</th></tr>
+      <tr><th></th><th style="text-align:center">${MFC.tlink(h.id, h.short, h.short)}</th><th style="text-align:center">${MFC.tlink(a.id, a.short, a.short)}</th></tr>
       ${row("League position", h.pos, a.pos, "low", MFC.ord)}
       ${row("Points", h.pts, a.pts, "high", (x) => x)}
       ${row("Won · drawn · lost", h.w, a.w, null, () => "", (s) => (s === "h" ? `${h.w}-${h.d}-${h.l}` : `${a.w}-${a.d}-${a.l}`))}

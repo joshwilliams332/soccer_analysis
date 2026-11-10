@@ -75,7 +75,7 @@ function render() {
   const cols = [col, ...COLS.filter((c) => c !== col)];  // the sorted column sits next to the name (phones)
   el("t").innerHTML = `<thead><tr><th class="l sticky">Name</th>${cols.map((c) =>
     `<th data-k="${c[0]}" class="${c[0] === sortKey ? "sorted" + (asc ? " asc" : "") : ""}">${c[1]}</th>`).join("")}</tr></thead>
-    <tbody>${rows.slice(0, shown).map((p) => `<tr><td class="l sticky name">${esc(p.name)}
+    <tbody>${rows.slice(0, shown).map((p) => `<tr><td class="l sticky name">${MFC.plink(p.id, p.name)}
       ${p.status !== "a" ? `<span class="pill doubt" title="${esc(p.news)}">${p.chance}%</span>` : ""}
       <small>${MFC.dot(p.team_short)} ${esc(p.team_short)} · ${p.pos}${p.pens === 1 ? " · PEN" : ""}</small></td>
       ${cols.map((c) => { const v = c[2](p);

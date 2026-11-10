@@ -52,6 +52,10 @@ const MFC = (() => {
     return `<span class="dot" style="background:linear-gradient(90deg,${a} 50%,${b} 50%)"></span>`;
   };
   const team = (ab, name) => `<span class="tm">${dot(ab)}${esc(name ?? ab)}</span>`;
+  const teamUrl = (id) => `team.html?id=${id}`;
+  const playerUrl = (id) => `player.html?id=${id}`;
+  const tlink = (id, ab, name) => `<a class="lk" href="${teamUrl(id)}">${team(ab, name)}</a>`;
+  const plink = (id, name) => `<a class="lk" href="${playerUrl(id)}">${esc(name)}</a>`;
   const us = (n) => (n == null ? "–" : n > 0 ? `+${n}` : `${n}`);
 
   function header(active) {
@@ -84,5 +88,5 @@ const MFC = (() => {
     where.innerHTML = `<div class="card empty">Couldn't load the data (${esc(err.message)}). Try again in a minute.</div>`;
   }
 
-  return { load, esc, num, pct, ord, param, rk, tone, form, dot, team, us, day, time, dayKey, header, footer, fail };
+  return { load, esc, num, pct, ord, param, rk, tone, form, dot, team, us, teamUrl, playerUrl, tlink, plink, day, time, dayKey, header, footer, fail };
 })();

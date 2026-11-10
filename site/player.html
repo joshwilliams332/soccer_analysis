@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mingus FC · Player</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main class="wrap" id="page"><div class="card empty" style="margin-top:18px">Loading…</div></main>
+<script src="assets/common.js"></script>
+<script>
+MFC.header("players.html");
+MFC.footer();
+const page = document.getElementById("page");
+const { esc, num, pct, us, rk } = MFC;
+const STATUS = { d: "Doubtful", i: "Injured", s: "Suspended", u: "Unavailable", n: "Not available" };
+const ORDER = (n) => (n === 1 ? "First choice" : n ? `${MFC.ord(n)} choice` : "–");
+
+Promise.all([MFC.load("players"), MFC.load("teams"), MFC.load("schedule")]).then(async ([players, teams, sched]) => {
+  const id = Number(MFC.param("id"));
+  const p = players.find((x) => x.id === id);
+  if (!p) { page.innerHTML = `<div class="card empty" style="margin-top:18px">Player not found. <a href="players.html">See all players</a></div>`; return; }
+  const t = teams.find((x) => x.id === p.team);
+  const detail = await MFC.load(`teams/${p.team}`);
+  const log = detail.logs[String(id)] || [];
+  document.title = `${p.name} · Mingus FC`;
+  const gk = p.pos === "GKP", def = p.pos === "DEF";
+
+  // Rank within position among regulars (same rule as the build: 270+ minutes) for stats the build doesn't rank.
+  const peers = players.filter((x) => x.pos === p.pos && x.min >= 270);
+  const rankOf = (val, better) => {
+    const v = val(p);
+    if (v == null || p.min < 270) return null;
+    const vals = peers.map(val).filter((x) => x != null);
+    return { rank: vals.filter((x) => (better === "high" ? x > v : x < v)).length + 1, of: vals.length };
+  };
+  const row = (label, value, r) => `<tr><td class="l">${label}</td><td>${value}</td><td>${r ? rk(r) : ""}</td></tr>`;
+  const mpx = (x) => (x.xgi > 0 ? x.min / x.xgi : null);
+
+  const kpis = gk
+    ? [[p.cs, "Clean sheets"], [num(p.saves90, 1), "Saves /90"], [num(p.xgc90), "xGC /90"], [p.fpl_pts, "FPL pts"]]
+    : [[p.g, `Goals · ${num(p.xg, 1)} xG`], [p.a, `Assists · ${num(p.xa, 1)} xA`], [num(p.xgi90), "xGI /90"], [p.fpl_pts, "FPL pts"]];
+
+  // Opponent chips from the player's side: a leaky defense (ranked low) is green, a tight one red.
+  const easier = (r) => (r ? rk({ rank: r.of - r.rank + 1, of: r.of }, MFC.ord(r.rank)) : "");
+  const next = sched.filter((f) => f.home === p.team || f.away === p.team).map((f) => {
+    const home = f.home === p.team, opp = teams.find((x) => x.id === (home ? f.away : f.home));
+    return `<tr><td class="l">GW${f.gw}<br><span class="small muted">${MFC.day(f.kickoff)}</span></td>
+      <td class="l">${home ? "" : "@ "}${MFC.tlink(opp.id, opp.short, opp.name)}</td>
+      <td>${MFC.ord(opp.pos)}</td><td>${num(opp.xga_pg)}${easier(opp.ranks.xga_pg)}</td></tr>`;
+  }).join("");
+
+  const logRows = [...log].reverse().map((g) => {
+    const dnp = !g.min;
+    const c = (v, ret) => `<td class="${dnp ? "blank" : ret && v ? "ret" : ""}">${dnp ? "–" : v}</td>`;
+    if (gk) {
+      return `<tr><td class="l">GW${g.gw}</td><td class="l">${g.home ? "" : "@ "}${esc(g.opp_short)} <span class="small muted">${g.score}</span></td>
+        <td class="${dnp ? "blank" : ""}">${dnp ? "DNP" : g.min}</td>${c(g.sv)}${c(g.cs ? "Yes" : "", true)}
+        <td class="${dnp ? "blank" : g.pts >= 6 ? "ret" : ""}"><b>${dnp ? "–" : g.pts}</b></td></tr>`;
+    }
+    const extra = gk ? c(g.sv) : c(g.dc);
+    return `<tr><td class="l">GW${g.gw}</td><td class="l">${g.home ? "" : "@ "}${esc(g.opp_short)} <span class="small muted">${g.score}</span></td>
+      <td class="${dnp ? "blank" : ""}">${dnp ? "DNP" : g.min}</td>${c(g.g, true)}${c(g.a, true)}
+      <td class="${dnp ? "blank" : ""}">${dnp ? "–" : num(g.xg)}</td><td class="${dnp ? "blank" : ""}">${dnp ? "–" : num(g.xa)}</td>
+      ${extra}<td class="${dnp ? "blank" : g.pts >= 6 ? "ret" : ""}"><b>${dnp ? "–" : g.pts}</b></td></tr>`;
+  }).join("");
+
+  page.innerHTML = `<div class="m-hero">
+      <div class="small muted">${p.pos} · ${MFC.tlink(t.id, t.short, t.name)}</div>
+      <h1 style="margin-top:4px">${esc(p.full)}</h1>
+      <div class="hero-sub"><span>£${num(p.cost, 1)}</span><span>${num(p.own, 1)}% owned</span><span>${p.starts} starts · ${p.min} min</span>
+        ${p.status !== "a" ? `<span style="color:#FBBF77">${esc(STATUS[p.status] || "")} · ${p.chance}% to play${p.news ? ` · ${esc(p.news)}` : ""}</span>` : ""}</div>
+      <div class="kpis">${kpis.map(([v, l]) => `<div><b>${v}</b><span>${l}</span></div>`).join("")}</div></div>
+
+    <h2>Per 90 minutes</h2>
+    <div class="tbl-wrap"><table>
+      <tr><th class="l">Stat</th><th>Value</th><th>Rank (${p.pos})</th></tr>
+      ${gk ? "" : row("xG per 90", num(p.xg90), p.ranks && p.ranks.xg90_pos)}
+      ${gk ? "" : row("xA per 90", num(p.xa90), p.ranks && p.ranks.xa90_pos)}
+      ${gk ? "" : row("xGI per 90", num(p.xgi90), p.ranks && p.ranks.xgi90_pos)}
+      ${gk ? "" : row("Minutes per xGI", mpx(p) == null ? "–" : num(mpx(p), 0), rankOf(mpx, "low"))}
+      ${gk ? "" : row("Share of team xG", pct(p.xg_share), rankOf((x) => x.xg_share, "high"))}
+      ${gk ? "" : row("Goals minus xG", (p.g_minus_xg > 0 ? "+" : "") + num(p.g_minus_xg, 1), null)}
+      ${gk ? row("Saves per 90", num(p.saves90, 1), null) : row("Defensive contributions per 90", num(p.dc90, 1), p.ranks && p.ranks.dc90_pos)}
+      ${gk || def ? row("xG conceded per 90", num(p.xgc90), p.ranks && p.ranks.xgc90_pos) : ""}
+      ${gk || def ? row("Clean sheets", p.cs, rankOf((x) => x.cs, "high")) : ""}
+      ${row("FPL points per 90", num(p.min ? p.fpl_pts / p.min * 90 : null, 1), rankOf((x) => (x.min ? x.fpl_pts / x.min * 90 : null), "high"))}
+    </table></div>
+    <p class="small muted">Rank among ${peers.length} ${{ GKP: "goalkeepers", DEF: "defenders", MID: "midfielders", FWD: "forwards" }[p.pos]} with 270+ minutes:
+      green = top quarter, red = bottom quarter.${p.min < 270 ? " Not enough minutes to rank yet." : ""}</p>
+
+    ${gk ? "" : `<h2>Set pieces</h2><div class="tbl-wrap"><table>
+      ${row("Penalties", ORDER(p.pens))}${row("Corners and indirect free kicks", ORDER(p.corners))}${row("Direct free kicks", ORDER(p.fks))}
+    </table></div>`}
+
+    <h2>Coming up</h2>
+    <div class="tbl-wrap"><table><tr><th class="l">GW</th><th class="l">Opponent</th><th>Pos</th><th>xGA /g</th></tr>
+      ${next || `<tr><td class="l muted" colspan="4">No games in the next two gameweeks.</td></tr>`}</table></div>
+    <p class="small muted">xGA /g: expected goals the opponent allows a game, with its rank (1st = fewest). Green = a
+      leaky defense (easier), red = a tight one.</p>
+
+    <h2>Game log</h2>
+    <div class="tbl-wrap"><table class="dense">
+      ${gk ? `<tr><th class="l">GW</th><th class="l">Opp</th><th>Min</th><th>Saves</th><th>Clean sheet</th><th>Pts</th></tr>`
+        : `<tr><th class="l">GW</th><th class="l">Opp</th><th>Min</th><th>G</th><th>A</th><th>xG</th><th>xA</th><th>DC</th><th>Pts</th></tr>`}
+      ${logRows || `<tr><td class="l" colspan="9">No games yet.</td></tr>`}
+    </table></div>
+    <p class="small muted">Green = ${gk ? "clean sheet" : "scored, assisted"} or 6+ FPL points. DNP = didn't play.${gk ? "" : " DC = FPL defensive contributions."}</p>
+    <p class="small"><a href="compare.html?mode=players&a=${id}">Compare ${esc(p.name)} with another player</a></p>`;
+}).catch((e) => MFC.fail(page, e));
+</script>
+</body>
+</html>

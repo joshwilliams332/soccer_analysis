@@ -54,11 +54,11 @@ function resultRow(m, teams) {
   const ratio = c == null || !m.likeliest ? null : c / m.likeliest;
   const cc = ratio == null ? "even" : ratio >= 0.85 ? "up" : ratio < 0.45 ? "down" : "even";
   return `<tr>
-    <td class="t h">${esc(h.name)}</td>
+    <td class="t h"><a class="lk" href="${MFC.teamUrl(h.id)}">${esc(h.name)}</a></td>
     <td class="box"><b class="${cmpClass(m.hg, m.ag)}">${m.hg}</b><span class="${cmpClass(m.hxg, m.axg)}">${num(m.hxg)}</span></td>
     <td class="lbl"><span>G</span><span>xG</span></td>
     <td class="box"><b class="${cmpClass(m.ag, m.hg)}">${m.ag}</b><span class="${cmpClass(m.axg, m.hxg)}">${num(m.axg)}</span></td>
-    <td class="t a">${esc(a.name)}</td>
+    <td class="t a"><a class="lk" href="${MFC.teamUrl(a.id)}">${esc(a.name)}</a></td>
     <td class="ch ${cc}">${c == null ? "–" : pct(c)}</td></tr>`;
 }
 
@@ -93,11 +93,11 @@ Promise.all([MFC.load("schedule"), MFC.load("teams"), MFC.load("gameweek")]).the
   if (gwk.top && gwk.top.length) {
     const [p, ...rest] = gwk.top;
     el("ptitle").textContent = `Player of the week · GW ${gwk.gw}`;
-    el("potw").innerHTML = `<div class="potw"><div><div class="k">Player of the week</div><div class="n">${esc(p.name)}</div>
+    el("potw").innerHTML = `<div class="potw"><div><div class="k">Player of the week</div><div class="n"><a class="lk" href="${MFC.playerUrl(p.id)}">${esc(p.name)}</a></div>
       <div class="small" style="color:#C9D1CD">${MFC.dot(p.team_short)} ${esc(p.team_short)} · ${p.pos} · ${p.g} G · ${p.a} A · ${num(p.xg)} xG · ${num(p.xa)} xA</div></div>
       <div class="pts">${p.pts}<small>FPL PTS</small></div></div>
       <div class="card" style="margin-top:10px;padding:4px 12px"><ul class="plist">${rest.map((x, i) => `<li>
-        <div class="n">${i + 2}</div><div class="who"><b>${esc(x.name)}</b><span class="small muted">${esc(x.team_short)} · ${x.pos} · ${x.g} G · ${x.a} A · ${num(x.xg)} xG</span></div>
+        <div class="n">${i + 2}</div><div class="who"><b>${MFC.plink(x.id, x.name)}</b><span class="small muted">${esc(x.team_short)} · ${x.pos} · ${x.g} G · ${x.a} A · ${num(x.xg)} xG</span></div>
         <div class="big"><b style="font-size:17px">${x.pts}</b> <span class="small muted">pts</span></div></li>`).join("")}</ul></div>`;
   }
 }).catch((e) => MFC.fail(el("list"), e));

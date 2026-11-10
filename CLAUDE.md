@@ -17,7 +17,7 @@ Sports project: `claude/mingus-team-charter.md`. The plan is `claude/plans/premi
 ## Site (GitHub Pages: https://joshwilliams332.github.io/soccer_analysis/)
 - **No model on the site (Josh, Nov 10).** The goals model runs in the background (build, frozen previews, accuracy,
   backtest) but the public site shows facts: who's playing, free odds, records, league position, xG comparisons.
-  The deploy job publishes only `teams, players, matches, schedule, gameweek, meta` (not `fixtures.json` /
+  The deploy job publishes only `teams, players, matches, schedule, gameweek, meta` and `teams/<id>.json` (not `fixtures.json` /
   `accuracy.json`, which hold model output). Don't add projections back without asking.
 - Pages in `site/`, no build step:
   - `index.html` Matches: next two gameweeks (time, position, points, form, odds when published), last gameweek's
@@ -28,6 +28,12 @@ Sports project: `claude/mingus-team-charter.md`. The plan is `claude/plans/premi
   - `players.html` dense sortable table (FPL price, ownership, points, starts, G, A, xG, xA, min per xGI, DC, CS, xGC);
     the sorted column moves next to the name; green / red = top / bottom quarter of the list.
   - `compare.html?mode=teams|players&a=&b=` any two teams or players side by side.
+  - `team.html?id=` team page: record, form, xG summary, coming up (with odds), season stats ranked 1-20, results
+    with xG, squad table. `player.html?id=` player page: price / ownership / status, per-90 stats ranked within
+    position (270+ min), set-piece duties, coming up (opponent xGA, colored from the player's side: leaky = green),
+    game log (keepers: saves / clean sheets). Team and player names link to these everywhere (`MFC.tlink` / `plink`).
+  - Both read `data/teams/<id>.json` (`build_data.team_files`: the team's results with xG + its players' game logs);
+    the deploy copies `build/teams/` too.
 - Shared helpers in `site/assets/common.js` (`MFC`: load, format, `tone`, `dot` club color dots, `team`, `us` odds,
   header, footer); styles in `style.css`.
 - Odds: `scripts/odds.py` pulls football-data.co.uk `fixtures.csv` (free; upcoming round, updated a couple of times a

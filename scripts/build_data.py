@@ -329,6 +329,8 @@ def build(raw_dir, build_dir, now=None, log_dir=None):
     # ---- Public files (no model output): schedule with free odds, last gameweek ----
     save(build_dir, "schedule.json", schedule(fixtures, next_gw, short, teams, upcoming, raw_dir))
     save(build_dir, "gameweek.json", last_gameweek(matches, histories, elements, short, POS))
+    for tid, data in team_files(teams, matches, histories, elements, short, fx_by_id).items():
+        save(os.path.join(build_dir, "teams"), f"{tid}.json", data)
     return meta
 
 
@@ -394,6 +396,44 @@ def schedule(fixtures, next_gw, short, teams, upcoming, raw_dir):
                      "home_short": short.get(fx["team_h"]), "away_short": short.get(fx["team_a"]),
                      "odds": o, "out": outs.get(fx["id"], {"home": [], "away": []})})
     return rows
+
+
+def team_files(teams, matches, histories, elements, short, fx_by_id):
+    """One file per team for the team and player pages: its results (with xG) and its players' game logs."""
+    out = {tid: {"id": tid, "results": [], "logs": {}} for tid in teams}
+    for m in matches:
+        for tid, home in ((m["home"], True), (m["away"], False)):
+            if tid not in out:
+                continue
+            gf, ga = (m["hg"], m["ag"]) if home else (m["ag"], m["hg"])
+            xf, xa = (m["hxg"], m["axg"]) if home else (m["axg"], m["hxg"])
+            opp = m["away"] if home else m["home"]
+            out[tid]["results"].append({"id": m["id"], "gw": m["gw"], "kickoff": m["kickoff"], "home": home,
+                                        "opp": opp, "opp_short": short.get(opp), "gf": gf, "ga": ga,
+                                        "xgf": r(xf), "xga": r(xa),
+                                        "res": "W" if gf > ga else "D" if gf == ga else "L"})
+    for pid, rows in histories.items():
+        el = elements.get(int(pid))
+        if not el or el["team"] not in out:
+            continue
+        log = []
+        for row in sorted(rows, key=lambda x: x.get("kickoff_time") or ""):
+            fx = fx_by_id.get(row.get("fixture"))
+            if not fx or not fx.get("finished"):
+                continue
+            home = bool(row.get("was_home"))
+            opp = fx["team_a"] if home else fx["team_h"]
+            gf, ga = (fx.get("team_h_score"), fx.get("team_a_score")) if home else (fx.get("team_a_score"), fx.get("team_h_score"))
+            log.append({"gw": row.get("round"), "fixture": fx["id"], "home": home, "opp_short": short.get(opp),
+                        "score": f"{gf}-{ga}", "min": row.get("minutes", 0), "st": row.get("starts", 0),
+                        "g": row.get("goals_scored", 0), "a": row.get("assists", 0),
+                        "xg": r(f(row.get("expected_goals"))), "xa": r(f(row.get("expected_assists"))),
+                        "pts": row.get("total_points", 0), "dc": row.get("defensive_contribution", 0),
+                        "cs": row.get("clean_sheets", 0), "sv": row.get("saves", 0),
+                        "yc": row.get("yellow_cards", 0), "rc": row.get("red_cards", 0)})
+        if any(x["min"] for x in log):
+            out[el["team"]]["logs"][str(el["id"])] = log
+    return out
 
 
 def last_gameweek(matches, histories, elements, short, pos_names):
