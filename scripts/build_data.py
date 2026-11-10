@@ -7,6 +7,8 @@ Reads <out>/raw/ (see fpl.py), writes <out>/build/:
   fixtures.json  next two gameweeks: projected goals, win / draw / loss, over 2.5, BTTS, clean sheets,
                  likely scores, players to watch, unavailable players
   meta.json      build time, season, gameweek, model settings, warnings
+  accuracy.json  season replay score and graded pre-kickoff previews (see accuracy.py)
+Also writes <out>/log/previews/<fixture>.json before kickoff (frozen once the match starts).
 """
 import argparse
 import json
@@ -15,6 +17,7 @@ import sys
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import accuracy  # noqa: E402
 import model  # noqa: E402
 
 POS = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
@@ -67,7 +70,7 @@ def season_label(events):
     return f"{y}-{(y + 1) % 100:02d}"
 
 
-def build(raw_dir, build_dir, now=None):
+def build(raw_dir, build_dir, now=None, log_dir=None):
     now = now or datetime.now(timezone.utc)
     boot = load(raw_dir, "bootstrap.json")
     fixtures = load(raw_dir, "fixtures.json")
@@ -302,6 +305,13 @@ def build(raw_dir, build_dir, now=None):
         "warnings": warnings,
     }
 
+    # ---- Accuracy: season replay + frozen pre-kickoff previews graded once played ----
+    acc = {"replay": accuracy.replay(matches), "replay_from_gw": accuracy.REPLAY_FROM, "live": {"n": 0}, "graded": []}
+    if log_dir:
+        accuracy.snapshot(log_dir, upcoming, now.strftime("%Y-%m-%dT%H:%M:%SZ"), MODEL_VERSION)
+        acc["live"], acc["graded"] = accuracy.grade_live(log_dir, matches)
+    save(build_dir, "accuracy.json", acc)
+
     save(build_dir, "teams.json", team_rows)
     save(build_dir, "players.json", player_rows)
     save(build_dir, "matches.json", match_rows)
@@ -314,7 +324,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="out")
     args = ap.parse_args()
-    meta = build(os.path.join(args.out, "raw"), os.path.join(args.out, "build"))
+    meta = build(os.path.join(args.out, "raw"), os.path.join(args.out, "build"),
+                 log_dir=os.path.join(args.out, "log", "previews"))
     print(f"Built {meta['season']}: {meta['matches']} matches, {meta['players']} players, "
           f"next GW {meta['next_gw']}, {len(meta['warnings'])} warnings")
 

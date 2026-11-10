@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mingus FC · Match preview</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
@@ -19,27 +19,28 @@ const { esc, num, pct, rk, form } = MFC;
 
 /* Plain-English notes on one side's attack against the other's defense. */
 function notes(att, def, attHome) {
+  /* Each note is [text, tone] from the attacking side's point of view: good = helps the attack, bad = hurts it. */
   const out = [];
   const ar = att.ranks.xgf_pg, dr = def.ranks.xga_pg;
-  if (ar.rank <= 5) out.push(`${esc(att.name)} create ${num(att.xgf_pg)} xG a game, ${MFC.ord(ar.rank)} in the league.`);
-  else if (ar.rank > ar.of - 5) out.push(`${esc(att.name)} create only ${num(att.xgf_pg)} xG a game (${MFC.ord(ar.rank)}).`);
-  if (dr.rank > dr.of - 5) out.push(`${esc(def.name)} allow ${num(def.xga_pg)} xG a game, ${MFC.ord(dr.rank)} of ${dr.of}: a soft spot.`);
-  else if (dr.rank <= 5) out.push(`${esc(def.name)} allow just ${num(def.xga_pg)} xG a game (${MFC.ord(dr.rank)} fewest): a tough wall.`);
+  if (MFC.tone(ar) === "good") out.push([`${esc(att.name)} create ${num(att.xgf_pg)} xG a game, ${MFC.ord(ar.rank)} in the league.`, "good"]);
+  else if (MFC.tone(ar) === "bad") out.push([`${esc(att.name)} create only ${num(att.xgf_pg)} xG a game (${MFC.ord(ar.rank)}).`, "bad"]);
+  if (MFC.tone(dr) === "bad") out.push([`${esc(def.name)} allow ${num(def.xga_pg)} xG a game, ${MFC.ord(dr.rank)} of ${dr.of}: a soft spot.`, "good"]);
+  else if (MFC.tone(dr) === "good") out.push([`${esc(def.name)} allow just ${num(def.xga_pg)} xG a game (${MFC.ord(dr.rank)} fewest): a tough wall.`, "bad"]);
   const trendA = att.last6.xgf_pg - att.xgf_pg, trendD = def.last6.xga_pg - def.xga_pg;
-  if (Math.abs(trendA) >= 0.3) out.push(`${esc(att.name)}'s chance creation is ${trendA > 0 ? "up" : "down"} lately: ${num(att.last6.xgf_pg)} xG a game over the last ${att.last6.gp}.`);
-  if (Math.abs(trendD) >= 0.3) out.push(`${esc(def.name)} have been ${trendD > 0 ? "leakier" : "tighter"} lately: ${num(def.last6.xga_pg)} xG allowed a game over the last ${def.last6.gp}.`);
+  if (Math.abs(trendA) >= 0.3) out.push([`${esc(att.name)}'s chance creation is ${trendA > 0 ? "up" : "down"} lately: ${num(att.last6.xgf_pg)} xG a game over the last ${att.last6.gp}.`, trendA > 0 ? "good" : "bad"]);
+  if (Math.abs(trendD) >= 0.3) out.push([`${esc(def.name)} have been ${trendD > 0 ? "leakier" : "tighter"} lately: ${num(def.last6.xga_pg)} xG allowed a game over the last ${def.last6.gp}.`, trendD > 0 ? "good" : "bad"]);
   const v = attHome ? att.home : att.away, dv = attHome ? def.away : def.home;
-  if (v.gp >= 3 && dv.gp >= 3) out.push(`${esc(att.name)} ${attHome ? "at home" : "away"}: ${num(v.xgf_pg)} xG a game. ${esc(def.name)} ${attHome ? "away" : "at home"}: ${num(dv.xga_pg)} allowed.`);
-  if (att.finishing >= 3) out.push(`${esc(att.name)} have scored ${num(att.finishing, 1)} more goals than their chances suggest; that usually cools off.`);
-  if (att.finishing <= -3) out.push(`${esc(att.name)} have scored ${num(-att.finishing, 1)} fewer goals than their chances suggest; finishing tends to even out.`);
-  if (!out.length) out.push(`Nothing extreme here: ${esc(att.name)}'s attack ranks ${MFC.ord(ar.rank)} and ${esc(def.name)}'s defense ${MFC.ord(dr.rank)}.`);
+  if (v.gp >= 3 && dv.gp >= 3) out.push([`${esc(att.name)} ${attHome ? "at home" : "away"}: ${num(v.xgf_pg)} xG a game. ${esc(def.name)} ${attHome ? "away" : "at home"}: ${num(dv.xga_pg)} allowed.`, ""]);
+  if (att.finishing >= 3) out.push([`${esc(att.name)} have scored ${num(att.finishing, 1)} more goals than their chances suggest; that usually cools off.`, "bad"]);
+  if (att.finishing <= -3) out.push([`${esc(att.name)} have scored ${num(-att.finishing, 1)} fewer goals than their chances suggest; finishing tends to even out.`, "good"]);
+  if (!out.length) out.push([`Nothing extreme here: ${esc(att.name)}'s attack ranks ${MFC.ord(ar.rank)} and ${esc(def.name)}'s defense ${MFC.ord(dr.rank)}.`, ""]);
   return out;
 }
 
 function matchupCard(att, def, attHome) {
   const row = (label, a, ar, d, dr) => `<tr><td class="l">${label}</td><td>${num(a)}${rk(ar)}</td><td>${num(d)}${rk(dr)}</td></tr>`;
   return `<div class="card"><h3>${esc(att.short)} attack vs ${esc(def.short)} defense</h3>
-    ${notes(att, def, attHome).map((s) => `<p class="say">${s}</p>`).join("")}
+    ${notes(att, def, attHome).map(([t, c]) => `<p class="say ${c}">${t}</p>`).join("")}
     <div class="tbl-wrap" style="margin-top:10px"><table>
       <tr><th class="l">xG a game</th><th>${esc(att.short)} for</th><th>${esc(def.short)} against</th></tr>
       ${row("Season", att.xgf_pg, att.ranks.xgf_pg, def.xga_pg, def.ranks.xga_pg)}
@@ -94,9 +95,9 @@ Promise.all([MFC.load("fixtures"), MFC.load("teams"), MFC.load("matches")]).then
   const h = teams[fx.home], a = teams[fx.away], p = fx.probs;
   document.title = `${h.short} v ${a.short} · Mingus FC`;
   const w = (x) => `${(x * 100).toFixed(1)}%`;
-  page.innerHTML = `
+  page.innerHTML = `<div class="m-hero">
     <div class="m-head">
-      <div class="small mono muted">GAMEWEEK ${fx.gw} · ${MFC.day(fx.kickoff)} · ${MFC.time(fx.kickoff)}</div>
+      <div class="small muted">GAMEWEEK ${fx.gw} · ${MFC.day(fx.kickoff)} · ${MFC.time(fx.kickoff)}</div>
     </div>
     <div class="m-teams">
       <div class="m-team"><h1 class="${h.name.length > 10 ? "long" : ""}">${esc(h.name)}</h1><div class="form">${form(h.form)}</div><div class="small muted mono rec">${h.pts} pts · ${h.w}-${h.d}-${h.l}</div></div>
@@ -105,7 +106,9 @@ Promise.all([MFC.load("fixtures"), MFC.load("teams"), MFC.load("matches")]).then
     </div>
     <div style="text-align:center;margin:12px 0"><span class="tag-est">MINGUS ESTIMATE</span></div>
     <div class="wdl"><div class="h" style="width:${w(p.home)}">${pct(p.home)}</div><div class="d" style="width:${w(p.draw)}">${pct(p.draw)}</div><div class="a" style="width:${w(p.away)}">${pct(p.away)}</div></div>
-    <div class="wdl-legend"><span>${esc(h.short)} win</span><span>Draw</span><span>${esc(a.short)} win</span></div>
+    <div class="wdl-legend"><span>${esc(h.short)} win</span><span>Draw</span><span>${esc(a.short)} win</span></div></div>
+    <p class="small muted">New model: on this season's replay it's been a little better than a simple baseline on results and has
+      projected too many goals. Not yet checked against bookmaker odds. <a href="model.html">Details</a></p>
 
     <h2>Goals</h2>
     <div class="stats">
@@ -120,6 +123,7 @@ Promise.all([MFC.load("fixtures"), MFC.load("teams"), MFC.load("matches")]).then
     <p class="small muted">Even the likeliest exact score happens only about one time in ${Math.round(1 / fx.scores[0].p)}.</p>
 
     <h2>Where each side can hurt the other</h2>
+    <p class="small muted" style="margin-top:-2px">Green dots help the attacking side, red dots work against it. Rank chips: green = good for that team, red = poor.</p>
     <div class="grid two">${matchupCard(h, a, true)}${matchupCard(a, h, false)}</div>
 
     <h2>Players to watch</h2>

@@ -6,7 +6,7 @@
 <title>Mingus FC · Premier League match previews</title>
 <meta name="description" content="Premier League match previews built on expected goals: projected goals, win / draw / loss, players to watch.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
@@ -20,6 +20,9 @@
   </div>
   <div class="controls"><div class="seg" id="gws"></div></div>
   <div id="list"><div class="card empty">Loading…</div></div>
+  <div class="card small" style="margin-top:14px"><b>How accurate is this?</b> The model is new. Replaying this season,
+    it's been a little better than a simple baseline at calling results and has projected too many goals. It hasn't been
+    checked against bookmaker odds yet, so treat these as rough estimates. <a href="model.html">See the numbers</a></div>
 </main>
 <script src="assets/common.js"></script>
 <script>

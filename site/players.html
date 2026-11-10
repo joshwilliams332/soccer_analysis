@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mingus FC · Premier League player xG and xA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
@@ -27,7 +27,7 @@
   <div class="card small" style="margin-top:12px">
     <b>xG</b> expected goals (includes penalties) · <b>xA</b> expected assists · <b>xGI</b> xG + xA ·
     <b>xGC</b> expected goals conceded while on the pitch · <b>DC</b> FPL defensive contributions (clearances, blocks,
-    interceptions, tackles, plus recoveries for midfielders and forwards). The number on the left is the rank within the list you're looking at.
+    interceptions, tackles, plus recoveries for midfielders and forwards). Colors compare players in the list you're looking at: top quarter green, bottom quarter red.
   </div>
 </main>
 <script src="assets/common.js"></script>
@@ -64,9 +64,9 @@ function render() {
   el("list").innerHTML = rows.slice(0, shown).map((p, i) => `<li>
     <div class="n">${i + 1}</div>
     <div class="who"><b>${esc(p.name)}</b> ${p.pens === 1 ? '<span class="pill" title="First on penalties">PEN</span>' : ""}
-      ${p.status !== "a" ? `<span class="pill" style="background:#5E5A52" title="${esc(p.news)}">${p.chance}%</span>` : ""}
+      ${p.status !== "a" ? `<span class="pill doubt" title="${esc(p.news)}">${p.chance}%</span>` : ""}
       <span class="small muted">${esc(p.team_short)} · ${p.pos} · ${p.min} min · ${p.g} G (${num(p.xg, 1)} xG) · ${p.a} A (${num(p.xa, 1)} xA)</span></div>
-    <div class="big">${fmt(key, p[key], d)}</div></li>`).join("") || `<li class="empty">No players match.</li>`;
+    <div class="big">${rk({ rank: i + 1, of: n }, fmt(key, p[key], d))}</div></li>`).join("") || `<li class="empty">No players match.</li>`;
   el("more").hidden = n <= shown;
 }
 
