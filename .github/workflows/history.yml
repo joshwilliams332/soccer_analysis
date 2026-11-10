@@ -1,0 +1,38 @@
+name: Fetch history
+
+# Downloads past seasons (FPL xG + football-data.co.uk odds) to the `history` branch for backtests.
+# Run by hand, or automatically when the fetcher changes.
+on:
+  workflow_dispatch:
+  push:
+    paths: [scripts/history.py, .github/workflows/history.yml]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: history
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Download
+        run: python scripts/history.py --out out
+      - name: Save to the history branch
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd out
+          git init -q -b history
+          git remote add origin "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -qm "History $(date -u +%Y-%m-%d)"
+          git push -qf origin history

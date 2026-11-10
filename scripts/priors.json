@@ -1,0 +1,85 @@
+{
+ "from_season": "2025-26",
+ "teams": {
+  "Arsenal": {
+   "att": 1.2595,
+   "def": 0.573
+  },
+  "Aston Villa": {
+   "att": 1.0082,
+   "def": 1.016
+  },
+  "Bournemouth": {
+   "att": 1.1918,
+   "def": 1.0293
+  },
+  "Brentford": {
+   "att": 1.0968,
+   "def": 1.0524
+  },
+  "Brighton": {
+   "att": 1.0792,
+   "def": 0.8786
+  },
+  "Burnley": {
+   "att": 0.6164,
+   "def": 1.4354
+  },
+  "Chelsea": {
+   "att": 1.1636,
+   "def": 1.0317
+  },
+  "Crystal Palace": {
+   "att": 1.0074,
+   "def": 1.0661
+  },
+  "Everton": {
+   "att": 0.9094,
+   "def": 1.0593
+  },
+  "Fulham": {
+   "att": 0.9321,
+   "def": 0.9651
+  },
+  "Leeds": {
+   "att": 1.0095,
+   "def": 1.037
+  },
+  "Liverpool": {
+   "att": 1.137,
+   "def": 0.967
+  },
+  "Man City": {
+   "att": 1.3771,
+   "def": 0.8337
+  },
+  "Man United": {
+   "att": 1.2153,
+   "def": 0.9109
+  },
+  "Newcastle": {
+   "att": 1.0636,
+   "def": 1.082
+  },
+  "Nott'm Forest": {
+   "att": 0.9348,
+   "def": 1.0449
+  },
+  "Sunderland": {
+   "att": 0.7916,
+   "def": 1.007
+  },
+  "Tottenham": {
+   "att": 0.8105,
+   "def": 0.9763
+  },
+  "West Ham": {
+   "att": 0.9128,
+   "def": 1.0934
+  },
+  "Wolves": {
+   "att": 0.6793,
+   "def": 1.1462
+  }
+ }
+}

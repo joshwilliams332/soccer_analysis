@@ -45,21 +45,40 @@ Sports project: `claude/mingus-team-charter.md`. The plan is `claude/plans/premi
   never copy another site's tables, names or design.
 - Brand: Mingus Sports kit (project `claude/brand-kit.md`). Soccer color Pitch #4C9A1E (small text #3B7A14).
 
-## Goals model v0 (`scripts/model.py`, untested against odds)
-- Per match: blended goals = 70% xG + 30% goals. Team attack / defense = recency-weighted (8-match half-life)
-  ratio to the league average for that venue, pulled toward 1.0 by 6 matches' worth of evidence.
-- Projected goals: league home average x home attack x away defense (and the mirror). Poisson scorelines with the
-  Dixon-Coles low-score fix (rho -0.06): win / draw / loss, over 2.5, BTTS, clean sheets, top 5 scores.
+## Goals model v1 (`scripts/model.py`; Nov 10, 2026)
+- Per match: blended goals = 85% xG + 15% goals. Team attack / defense = recency-weighted (15-match half-life) ratio to
+  the league average for that venue, pulled toward a **prior** by 6 matches' worth of evidence. Prior = last season's
+  end-of-season strength (`scripts/priors.json`, keyed by football-data team name via `model.team_key`); teams not in
+  it (promoted) start at 0.75 attack / 1.25 defense.
+- Projected goals: league home **goals** average x home attack x away defense (and the mirror). Scaling to actual goals
+  stops a season where FPL xG runs above goals (2026-27) from inflating projections. Poisson + Dixon-Coles (rho -0.06).
+- `model.fit(matches, priors)` is the one entry point (build and replay both use it).
 - Players to watch: per-90 xG / xA steadied toward the position average (450 minutes' worth) x expected minutes
   (average of the team's last 4 matches x chance of playing) x the matchup (projected goals vs the team's
   average-opponent baseline, 0.5-2.0). Chance of at least one = 1 - e^(-expected).
 - Expected points (luck table): Poisson on each match's xG totals. Rough; not shot-by-shot.
-- Not proven: backtest against football-data.co.uk closing odds before any public claims. Label outputs as estimates.
+- **New season:** re-run the backtest with `--priors scripts/priors.json` after adding the finished season to
+  `history.py`'s SEASONS, or every team starts as promoted.
+
+## Backtest (`scripts/backtest.py`, `.github/workflows/history.yml`)
+- `history.yml` (manual, or when `history.py` changes) downloads FPL seasons 2022-23 on (vaastav/Fantasy-Premier-League,
+  team xG = sum of players') and football-data.co.uk `E0.csv` (closing odds) to the **`history`** branch. FPL xG starts
+  at 2022-23 GW16; earlier matches are goals-only.
+- Run: fetch the `history` branch (`hist/`) and the `data` branch (`build/`), then
+  `python3 scripts/backtest.py --hist <hist> --current <data dir> --json site/backtest.json --priors scripts/priors.json`.
+  `site/backtest.json` is committed and shown on the Model page.
+- Market = closing prices, margin removed: Pinnacle, else Betfair Exchange (Pinnacle columns stop mid 2025-26), else
+  average. Scored from GW4. v1 tuned on 2022-23 to 2025-26, 2026-27 held out.
+- Nov 10 results (log loss, home / draw / away): v0 0.998, **v1 0.984**, closing odds **0.965**, base rate 1.075.
+  v1 beat v0 every season; behind the odds in 4 of 5 (ahead in 2024-25). Mixing the model into the odds only helped in
+  2024-25; a flat-stakes test swung +61 to -28 units by season. **No proven edge over bookmakers.** Over 2.5: about
+  the baseline; the odds are better. Don't claim an edge publicly.
 
 ## Accuracy (`scripts/accuracy.py`, rebuilt every run into `build/accuracy.json`, shown on `model.html`)
 - **Replay:** every match from GW4 on, predicted only from earlier gameweeks with today's settings, vs a baseline
-  that knows only earlier home / draw / away and over 2.5 rates. Nov 10 (70 matches): results Brier 0.634 vs 0.664
-  (better), log loss 1.051 vs 1.095; over 2.5 about the same as baseline; projects too many goals (2.94 vs 2.69 a game).
+  that knows only earlier home / draw / away and over 2.5 rates. Nov 10 with v1 (70 matches): log loss 1.024 vs 1.095;
+  over 2.5 about the baseline; goals 2.85 projected vs 2.69 actual (v0 was 2.94).
 - **Live record:** each upcoming preview is written to `log/previews/<fixture>.json` on the data branch every run until
   kickoff, then never touched; graded once the result is in. This is the real record; the replay flatters the model.
-- Still to do: backtest past seasons against football-data.co.uk closing odds (runs in Actions; the sandbox is blocked).
+- Live grading vs closing odds: later (the current season's odds file is on the `history` branch; refresh it by re-running
+  `history.yml`).
