@@ -1,0 +1,63 @@
+name: Build data
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 11 * * *"   # midday UK: injury news before the day's games
+    - cron: "41 23 * * *"   # after the evening games
+    - cron: "47 17 * * 0,6" # weekend: after the early and 3 PM games
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "Re-fetch every player history"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-data-${{ github.event_name == 'pull_request' && 'preview' || 'main' }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Check out the data branch
+        env:
+          BR: ${{ github.event_name == 'pull_request' && 'data-preview' || 'data' }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "DATA_BRANCH=$BR" >> "$GITHUB_ENV"
+          mkdir out && cd out
+          git init -q -b "$BR"
+          git remote add origin "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git fetch -q --depth 1 origin "$BR"; then git checkout -q -B "$BR" FETCH_HEAD; else echo "new data branch"; fi
+
+      - name: Fetch FPL data
+        run: python scripts/fpl.py --out out ${{ inputs.full && '--full' || '' }}
+
+      - name: Build
+        run: python scripts/build_data.py --out out
+
+      - name: Save to the data branch
+        run: |
+          cd out
+          git add -A
+          if git diff --cached --quiet; then echo "no changes"; exit 0; fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -qm "Data $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -q origin "$DATA_BRANCH"
