@@ -57,6 +57,10 @@ Sports project: `claude/mingus-team-charter.md`. The plan is `claude/plans/premi
   smaller `long` class on phones.
 
 ## Data
+- **Match state:** FPL keeps a fixture's `finished` false until the whole gameweek's bonus is confirmed (often the day
+  after the last game). Use `build_data.is_played` (finished or `finished_provisional`) for results and
+  `is_upcoming` (not played, not started) for schedules; `fpl.py` re-fetches player histories on provisional results
+  too. The "next" gameweek is the first one with a match still to kick off (so a Monday game stays listed).
 - **FPL public API** (no key): player per-match minutes, goals, assists, xG, xA, xG conceded, defensive
   contributions, saves, cards; injury status, chance of playing, penalty / set-piece order; fixtures and scores.
   Team xG for a match = sum of its players' xG (includes penalties; there's no non-penalty xG in FPL).

@@ -28,6 +28,16 @@ OUT_STATUSES = {"i", "s", "u", "n"}
 MODEL_VERSION = model.VERSION
 
 
+def is_played(fx):
+    """Score is in. FPL keeps `finished` false until the whole gameweek's bonus is confirmed (often the next day);
+    `finished_provisional` is set at full time, so results show as soon as a match ends."""
+    return bool(fx.get("finished") or fx.get("finished_provisional"))
+
+
+def is_upcoming(fx):
+    return not is_played(fx) and not fx.get("started")
+
+
 def f(x):
     try:
         return float(x)
@@ -94,7 +104,7 @@ def build(raw_dir, build_dir, now=None, log_dir=None):
             side_xg[k] = side_xg.get(k, 0.0) + f(row.get("expected_goals"))
             side_xa[k] = side_xa.get(k, 0.0) + f(row.get("expected_assists"))
 
-    finished = sorted((fx for fx in fixtures if fx.get("finished") and fx.get("kickoff_time")),
+    finished = sorted((fx for fx in fixtures if is_played(fx) and fx.get("kickoff_time")),
                       key=lambda fx: fx["kickoff_time"])
     matches = []
     for fx in finished:
@@ -244,10 +254,9 @@ def build(raw_dir, build_dir, now=None, log_dir=None):
 
     # ---- Upcoming fixtures ----
     events = boot.get("events", [])
-    next_gw = next((e["id"] for e in events if e.get("is_next")), None)
-    if next_gw is None:
-        upcoming_gws = sorted({fx["event"] for fx in fixtures if not fx.get("finished") and fx.get("event")})
-        next_gw = upcoming_gws[0] if upcoming_gws else None
+    # The first gameweek that still has a match to kick off (so a Monday game in the current round still shows).
+    upcoming_gws = sorted({fx["event"] for fx in fixtures if is_upcoming(fx) and fx.get("event")})
+    next_gw = upcoming_gws[0] if upcoming_gws else None
     neutral = (avg["home"] + avg["away"]) / 2
     by_team = {}
     for p in player_rows:
@@ -277,7 +286,7 @@ def build(raw_dir, build_dir, now=None, log_dir=None):
     upcoming = []
     if next_gw:
         for fx in sorted(fixtures, key=lambda fx: fx.get("kickoff_time") or ""):
-            if fx.get("finished") or fx.get("event") not in (next_gw, next_gw + 1):
+            if not is_upcoming(fx) or fx.get("event") not in (next_gw, next_gw + 1):
                 continue
             lh, la = model.project(fx["team_h"], fx["team_a"], strengths, avg)
             probs = model.match_probs(lh, la)
@@ -328,7 +337,11 @@ def build(raw_dir, build_dir, now=None, log_dir=None):
 
     # ---- Public files (no model output): schedule with free odds, last gameweek ----
     save(build_dir, "schedule.json", schedule(fixtures, next_gw, short, teams, upcoming, raw_dir))
-    save(build_dir, "gameweek.json", last_gameweek(matches, histories, elements, short, POS))
+    to_play = {}
+    for fx in fixtures:
+        if fx.get("event") and not is_played(fx):
+            to_play[fx["event"]] = to_play.get(fx["event"], 0) + 1
+    save(build_dir, "gameweek.json", last_gameweek(matches, histories, elements, short, POS, to_play))
     save(build_dir, "difficulty.json", difficulty(fixtures, next_gw, team_rows, short))
     for tid, data in team_files(teams, matches, histories, elements, short, fx_by_id).items():
         save(os.path.join(build_dir, "teams"), f"{tid}.json", data)
@@ -378,7 +391,7 @@ def schedule(fixtures, next_gw, short, teams, upcoming, raw_dir):
     if not next_gw:
         return rows
     for fx in sorted(fixtures, key=lambda x: x.get("kickoff_time") or ""):
-        if fx.get("finished") or fx.get("event") not in (next_gw, next_gw + 1):
+        if not is_upcoming(fx) or fx.get("event") not in (next_gw, next_gw + 1):
             continue
         hk, ak = model.team_key(teams[fx["team_h"]]["name"]), model.team_key(teams[fx["team_a"]]["name"])
         o = None
@@ -413,7 +426,7 @@ def difficulty(fixtures, next_gw, team_rows, short, n=5):
     for t in team_rows:
         cells = {g: [] for g in gws}
         for fx in sorted(fixtures, key=lambda x: x.get("kickoff_time") or ""):
-            if fx.get("finished") or fx.get("event") not in cells or t["id"] not in (fx["team_h"], fx["team_a"]):
+            if not is_upcoming(fx) or fx.get("event") not in cells or t["id"] not in (fx["team_h"], fx["team_a"]):
                 continue
             home = fx["team_h"] == t["id"]
             opp = stats.get(fx["team_a"] if home else fx["team_h"])
@@ -446,7 +459,7 @@ def team_files(teams, matches, histories, elements, short, fx_by_id):
         log = []
         for row in sorted(rows, key=lambda x: x.get("kickoff_time") or ""):
             fx = fx_by_id.get(row.get("fixture"))
-            if not fx or not fx.get("finished"):
+            if not fx or not is_played(fx):
                 continue
             home = bool(row.get("was_home"))
             opp = fx["team_a"] if home else fx["team_h"]
@@ -463,8 +476,9 @@ def team_files(teams, matches, histories, elements, short, fx_by_id):
     return out
 
 
-def last_gameweek(matches, histories, elements, short, pos_names):
+def last_gameweek(matches, histories, elements, short, pos_names, to_play=None):
     """Latest gameweek with results: score, team xG, how likely that result was from the chances; top performers."""
+    to_play = to_play or {}
     done = [m for m in matches if m.get("gw")]
     if not done:
         return {}
@@ -495,7 +509,7 @@ def last_gameweek(matches, histories, elements, short, pos_names):
                      "xa": r(sum(f(x.get("expected_assists")) for x in mine)),
                      "min": sum(x.get("minutes", 0) for x in mine)})
     perf.sort(key=lambda x: (-x["pts"], -(x["xg"] + x["xa"])))
-    return {"gw": gw, "results": results, "top": perf[:5]}
+    return {"gw": gw, "results": results, "top": perf[:5], "to_play": to_play.get(gw, 0)}
 
 
 def main():

@@ -66,7 +66,7 @@ def parse_time(s):
 
 def needs_refresh(fixtures, previous_fetch, now):
     """True if any match finished since the last fetch, or one is still in the correction window."""
-    finished = [f for f in fixtures if f.get("finished")]
+    finished = [f for f in fixtures if f.get("finished") or f.get("finished_provisional")]
     ids = sorted(f["id"] for f in finished)
     if ids != previous_fetch.get("finished_ids"):
         return True
@@ -114,7 +114,7 @@ def main():
         "refreshed_histories": refresh,
         "players_fetched": fetched,
         "players_with_history": len(histories),
-        "finished_ids": sorted(f["id"] for f in fixtures if f.get("finished")),
+        "finished_ids": sorted(f["id"] for f in fixtures if f.get("finished") or f.get("finished_provisional")),
         "histories_from": now.isoformat(timespec="seconds") if refresh else previous.get("histories_from"),
     }
     save(os.path.join(raw, "fetch.json"), fetch)

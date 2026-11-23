@@ -86,7 +86,7 @@ Promise.all([MFC.load("schedule"), MFC.load("teams"), MFC.load("gameweek")]).the
   render();
 
   if (gwk.results) {
-    el("rtitle").textContent = `Gameweek ${gwk.gw} results`;
+    el("rtitle").textContent = `Gameweek ${gwk.gw} results` + (gwk.to_play ? ` (${gwk.to_play} still to play)` : "");
     el("results").innerHTML = `<tr><td></td><td></td><td></td><td></td><td></td><td class="small muted" style="text-align:center;font-weight:800">xG says</td></tr>`
       + gwk.results.map((m) => resultRow(m, teams)).join("");
   }

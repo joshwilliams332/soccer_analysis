@@ -233,3 +233,15 @@ class TestRefresh(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestMatchState(unittest.TestCase):
+    def test_provisional_counts_as_played(self):
+        # FPL keeps `finished` false until the whole gameweek's bonus is confirmed
+        self.assertTrue(build_data.is_played({"finished": False, "finished_provisional": True}))
+        self.assertFalse(build_data.is_upcoming({"finished": False, "finished_provisional": True, "started": True}))
+        self.assertFalse(build_data.is_upcoming({"finished": False, "finished_provisional": False, "started": True}))  # live
+        self.assertTrue(build_data.is_upcoming({"finished": False, "finished_provisional": False, "started": False}))
+        now = datetime(2026, 11, 23, tzinfo=timezone.utc)
+        prov = {"id": 5, "finished": False, "finished_provisional": True, "kickoff_time": "2026-10-01T15:00:00Z"}
+        self.assertTrue(fpl.needs_refresh([prov], {"finished_ids": []}, now))  # player stats reload at full time
