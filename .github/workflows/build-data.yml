@@ -87,7 +87,7 @@ jobs:
           mkdir -p site/data
           git --work-tree=site/data checkout FETCH_HEAD -- build
           # Public files only: the model's projections and accuracy (fixtures.json, accuracy.json) stay off the site.
-          for f in teams players matches schedule gameweek meta; do mv "site/data/build/$f.json" site/data/; done
+          for f in teams players matches schedule gameweek meta difficulty; do mv "site/data/build/$f.json" site/data/; done
           mv site/data/build/teams site/data/teams
           rm -rf site/data/build
           git reset -q

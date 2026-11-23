@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mingus FC · Fixture difficulty, next 5 gameweeks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main class="wrap">
+  <div class="page-head"><div><h1>Fixture difficulty</h1>
+    <div class="lede small" id="lede">Every team's next five gameweeks, easiest run first.</div></div>
+    <div class="seg" id="view"><button data-v="att" class="on">Attack</button><button data-v="def">Defense</button></div></div>
+  <div class="card small" id="explain" style="margin-bottom:10px"></div>
+  <div class="tbl-wrap"><table class="fdr" id="t"></table></div>
+  <div class="legend5" style="margin-top:8px"><span>Easier</span><i style="background:#BBE8C8"></i><i style="background:#DCF5E3"></i><i style="background:#fff;border:1px solid #E1E5E3"></i><i style="background:#FDE2E1"></i><i style="background:#F8C4C4"></i><span>Harder</span></div>
+</main>
+<script src="assets/common.js"></script>
+<script>
+MFC.header("fixtures.html");
+MFC.footer();
+const { esc, num } = MFC;
+const el = (id) => document.getElementById(id);
+let data = null, view = MFC.param("view") === "def" ? "def" : "att";
+
+const TEXT = {
+  att: "<b>Attack</b>: for picking attackers. Each cell is the opponent and the xG it <b>allows</b> a game this season. More allowed = easier to score = greener.",
+  def: "<b>Defense</b>: for picking defenders and keepers. Each cell is the opponent and the xG it <b>creates</b> a game this season. Less created = easier clean sheet = greener.",
+};
+
+function render() {
+  const key = view === "att" ? "opp_xga" : "opp_xgf";
+  // Ease: higher = easier. Attack: opponent allows more. Defense: opponent creates less.
+  const ease = (c) => (view === "att" ? c[key] : -c[key]);
+  const all = data.teams.flatMap((t) => t.cells.flat()).map(ease).sort((a, b) => a - b);
+  const cut = (q) => all[Math.min(all.length - 1, Math.floor(q * all.length))];
+  const q = [cut(0.2), cut(0.4), cut(0.6), cut(0.8)];
+  const band = (v) => (v >= q[3] ? "e1" : v >= q[2] ? "e2" : v >= q[1] ? "e3" : v >= q[0] ? "e4" : "e5");
+  const rows = data.teams.map((t) => {
+    const games = t.cells.flat();
+    const avg = games.length ? games.reduce((s, c) => s + ease(c), 0) / games.length : -Infinity;
+    return { t, avg, games: games.length };
+  }).sort((a, b) => b.avg - a.avg);
+  el("t").innerHTML = `<tr><th class="l sticky">Team</th>${data.gws.map((g) => `<th style="text-align:center">GW${g}</th>`).join("")}<th>Avg</th></tr>`
+    + rows.map(({ t, avg }) => `<tr><td class="l sticky">${MFC.tlink(t.id, t.short, t.short)}</td>
+      ${t.cells.map((cell) => {
+        if (!cell.length) return `<td class="c blank"><b>–</b><span>blank</span></td>`;
+        const cls = band(cell.reduce((s, c) => s + ease(c), 0) / cell.length);
+        return `<td class="c ${cls}">${cell.map((c) => `<div class="dbl"><b>${c.home ? esc(c.opp_short) : esc(c.opp_short.toLowerCase())}</b><span>${c.home ? "H" : "A"} · ${num(c[key])}</span></div>`).join("")}</td>`;
+      }).join("")}
+      <td><b>${num(Math.abs(avg))}</b></td></tr>`).join("");
+  el("explain").innerHTML = TEXT[view] + " Home games in capitals, away in lower case. Avg = average over the run.";
+  history.replaceState(null, "", `?view=${view}`);
+}
+
+el("view").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  view = b.dataset.v;
+  document.querySelectorAll("#view button").forEach((x) => x.classList.toggle("on", x === b));
+  render();
+});
+MFC.load("difficulty").then((d) => {
+  data = d;
+  document.querySelectorAll("#view button").forEach((x) => x.classList.toggle("on", x.dataset.v === view));
+  if (!d.gws.length) { el("t").innerHTML = `<tr><td class="l">No upcoming fixtures.</td></tr>`; return; }
+  render();
+}).catch((e) => MFC.fail(el("t").parentElement, e));
+</script>
+</body>
+</html>

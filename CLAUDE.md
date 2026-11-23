@@ -17,7 +17,7 @@ Sports project: `claude/mingus-team-charter.md`. The plan is `claude/plans/premi
 ## Site (GitHub Pages: https://joshwilliams332.github.io/soccer_analysis/)
 - **No model on the site (Josh, Nov 10).** The goals model runs in the background (build, frozen previews, accuracy,
   backtest) but the public site shows facts: who's playing, free odds, records, league position, xG comparisons.
-  The deploy job publishes only `teams, players, matches, schedule, gameweek, meta` and `teams/<id>.json` (not `fixtures.json` /
+  The deploy job publishes only `teams, players, matches, schedule, gameweek, meta, difficulty` and `teams/<id>.json` (not `fixtures.json` /
   `accuracy.json`, which hold model output). Don't add projections back without asking.
 - Pages in `site/`, no build step:
   - `index.html` Matches: next two gameweeks (time, position, points, form, odds when published), last gameweek's
@@ -32,6 +32,14 @@ Sports project: `claude/mingus-team-charter.md`. The plan is `claude/plans/premi
     with xG, squad table. `player.html?id=` player page: price / ownership / status, per-90 stats ranked within
     position (270+ min), set-piece duties, coming up (opponent xGA, colored from the player's side: leaky = green),
     game log (keepers: saves / clean sheets). Team and player names link to these everywhere (`MFC.tlink` / `plink`).
+  - `fixtures.html?view=att|def` fixture difficulty: every team's next 5 gameweeks (`build_data.difficulty` →
+    `difficulty.json`), opponent in capitals (home) / lower case (away) with its season xG allowed (attack view) or
+    created (defense view), five shades from easier (green) to harder (red) by quintile, teams sorted easiest run first.
+    Blank gameweeks show "blank"; doubles stack two opponents.
+  - Team pages also have an **xG trend** chart (`MFC.xgChart`): 3-match rolling xG for (dark green #166534, solid) and
+    against (light red #F87171, dashed), match dots, tap / hover tooltip, direct end labels. The pair passed the dataviz
+    palette check for color-blind separation; the red is below 3:1 contrast so labels + the results table are the relief.
+  - Phones (< 420px): the "MINGUS" wordmark hides so the five menu tabs fit.
   - Both read `data/teams/<id>.json` (`build_data.team_files`: the team's results with xG + its players' game logs);
     the deploy copies `build/teams/` too.
 - Shared helpers in `site/assets/common.js` (`MFC`: load, format, `tone`, `dot` club color dots, `team`, `us` odds,
@@ -49,6 +57,10 @@ Sports project: `claude/mingus-team-charter.md`. The plan is `claude/plans/premi
   smaller `long` class on phones.
 
 ## Data
+- **Match state:** FPL keeps a fixture's `finished` false until the whole gameweek's bonus is confirmed (often the day
+  after the last game). Use `build_data.is_played` (finished or `finished_provisional`) for results and
+  `is_upcoming` (not played, not started) for schedules; `fpl.py` re-fetches player histories on provisional results
+  too. The "next" gameweek is the first one with a match still to kick off (so a Monday game stays listed).
 - **FPL public API** (no key): player per-match minutes, goals, assists, xG, xA, xG conceded, defensive
   contributions, saves, cards; injury status, chance of playing, penalty / set-piece order; fixtures and scores.
   Team xG for a match = sum of its players' xG (includes penalties; there's no non-penalty xG in FPL).
