@@ -44,6 +44,9 @@ Sports project: `claude/mingus-team-charter.md`. The plan is `claude/plans/premi
     the deploy copies `build/teams/` too.
 - Shared helpers in `site/assets/common.js` (`MFC`: load, format, `tone`, `dot` club color dots, `team`, `us` odds,
   header, footer); styles in `style.css`.
+- Deploy flake (Nov 21-26): `deploy-pages` sometimes reports "No artifacts named github-pages" right after a successful
+  upload, failing the run and emailing Josh. The deploy step now continues on error, waits 30 s, re-uploads as
+  `github-pages-retry` and deploys that once. A failure after the retry is real.
 - Odds: `scripts/odds.py` pulls football-data.co.uk `fixtures.csv` (free; upcoming round, updated a couple of times a
   week) → `raw/odds_fixtures.csv`; `build_data.schedule()` matches it to fixtures (date ±1 day, `model.team_key`),
   shows the bookmaker average as US odds plus the implied chance. No odds file = "Odds not out yet". No Odds API credits.
